@@ -1,6 +1,9 @@
 ![Faws](./doc/img/logo.png)
 
-An experimental version control system for managing large volumes of game files, inspired by Git.
+[![Go Reference](https://pkg.go.dev/badge/github.com/faws-vcs/faws.svg)](https://pkg.go.dev/github.com/faws-vcs/faws)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
+An experimental version control system for archiving/merging/distributing large volumes of game files, inspired by Git.
 
 > [!WARNING]
 > It might not be good idea to use Faws for serious archival purposes just yet. Your files could be lost.
