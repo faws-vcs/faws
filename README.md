@@ -28,7 +28,7 @@ manage authorship identities
 
 sync objects between local and remote repositories
   pull         download a remote into the current directory
-  shadow       download the minimum number of objects to checkout a specific commit/tree/file object, creating  a "shadow" of the repository
+  shadow       download the minimum number of objects to checkout a specific commit/tree/file object, creating a "shadow" of the repository
 
 manage repository state
   init         create an empty repository in the current directory
@@ -39,6 +39,7 @@ manage repository state
   ls-tree      list the contents of a tree object
   commit-tree  create a new commit object using an already-created tree object
   commit       create a new commit object using files from the index
+  log          show commit logs
   cat-file     provide contents or details of repository objects
   checkout     export a tree, or a tree of a commit, into a directory
 
