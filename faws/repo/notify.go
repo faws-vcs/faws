@@ -4,8 +4,9 @@ type Ev uint8
 
 const (
 	EvPullTag = iota
+	// ( object cas.ContentID, size int )
 	EvPullObject
-	// Number of download objects
+	// ( count int )
 	EvPullQueueCount
 )
 

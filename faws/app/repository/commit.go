@@ -9,12 +9,16 @@ import (
 	"github.com/faws-vcs/faws/faws/validate"
 )
 
-type CommitTreeParams struct {
-	CommitParams
-	Tree string
+type CommitParams struct {
+	Directory  string
+	TreeDate   int64
+	CommitDate int64
+	Tag        string
+	Parent     string
+	Sign       string
 }
 
-func CommitTree(params *CommitTreeParams) {
+func Commit(params *CommitParams) {
 	if err := Open(params.Directory); err != nil {
 		app.Fatal(err)
 	}
@@ -55,10 +59,7 @@ func CommitTree(params *CommitTreeParams) {
 			app.Fatal(err)
 		}
 	}
-	if params.Tree == "" {
-		app.Fatal("you must provide a tree object")
-	}
-	commit_info.Tree, err = Repo.ParseRef(params.Tree)
+	commit_info.Tree, err = Repo.WriteTree()
 	if err != nil {
 		app.Fatal(err)
 	}

@@ -1,9 +1,12 @@
 package repo
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"strings"
+	"sync"
 
 	"github.com/faws-vcs/faws/faws/repo/cas"
 	"github.com/faws-vcs/faws/faws/repo/remote"
@@ -14,12 +17,11 @@ import (
 
 // 1. retrieve list of tags from server
 // 2. download all commits and their parents going back from current server tags
-// 3. go through all commits, looking for missing objects
-// 4. download the missing objects
+// 3. go through all commits, looking for missing objects, put them in a queue
+// 4. download the missing objects, updating user on progress as we go
 
 type pull_queue struct {
-	// count uint32
-	// head  *pull_link
+	guard sync.Mutex
 	items *btree.BTreeG[cas.ContentID]
 }
 
@@ -28,16 +30,14 @@ func (pq *pull_queue) Len() int {
 }
 
 func (pq *pull_queue) Push(object_hash cas.ContentID) {
-	// var link pull_link
-	// link.object_hash = object_hash
-	// link.next = pq.head
-	// pq.head = &link
 	pq.items.ReplaceOrInsert(object_hash)
 }
 
 // when there are no more objects, ok is false.
 func (pq *pull_queue) Pop() (object_hash cas.ContentID, ok bool) {
+	pq.guard.Lock()
 	object_hash, ok = pq.items.DeleteMin()
+	pq.guard.Unlock()
 	return
 }
 
@@ -105,7 +105,7 @@ func (repo *Repository) fetch_object(fs remote.Fs, object_hash cas.ContentID) (p
 			return
 		}
 
-		repo.notify(EvPullObject, object_hash)
+		repo.notify(EvPullObject, prefix, object_hash, len(object_data)-4)
 	} else if err != nil {
 		return
 	}
@@ -287,7 +287,7 @@ func (repo *Repository) list_remote_tags(fs remote.Fs) (tags []string, err error
 	}
 
 	for _, entry := range entries {
-		if !entry.IsDir && entry.Size == cas.ContentIDSize {
+		if !entry.IsDir {
 			if validate.CommitTag(entry.Name) == nil {
 				tags = append(tags, entry.Name)
 			}
@@ -301,16 +301,29 @@ func (repo *Repository) pull_queue(fs remote.Fs, pq *pull_queue) (err error) {
 	if pq.Len() > 0 {
 		repo.notify(EvPullQueueCount, int(pq.Len()))
 
-		for {
-			next_object_hash, ok := pq.Pop()
-			if !ok {
-				break
-			}
+		num_workers := 12
+		var wg sync.WaitGroup
+		wg.Add(num_workers)
 
-			if _, _, err = repo.fetch_object(fs, next_object_hash); err != nil {
-				return
-			}
+		for i := 0; i < num_workers; i++ {
+			go func() {
+				for {
+					next_object_hash, ok := pq.Pop()
+					if !ok {
+						break
+					}
+
+					if _, _, err := repo.fetch_object(fs, next_object_hash); err != nil {
+						panic(err)
+						// return
+					}
+				}
+
+				wg.Done()
+			}()
 		}
+
+		wg.Wait()
 	}
 	return
 }
@@ -328,6 +341,99 @@ func (repo *Repository) Pull(fs remote.Fs, force bool) (err error) {
 		if err = repo.pull_remote_tag(pq, fs, tag, force); err != nil {
 			return
 		}
+	}
+
+	err = repo.pull_queue(fs, pq)
+
+	return
+}
+
+func (repo *Repository) deabbreviate_remote_hash(fs remote.Fs, ref string) (object_hash cas.ContentID, err error) {
+	if !validate.Hex(ref) {
+		err = ErrBadRef
+		return
+	}
+
+	// skip
+	if len(ref) == cas.ContentIDSize*2 {
+		_, err = hex.Decode(object_hash[:], []byte(ref))
+		return
+	}
+
+	if len(ref) < 5 {
+		err = ErrBadRef
+		return
+	}
+
+	bucket := "objects/" + ref[0:2] + "/" + ref[2:4]
+
+	unknown_part := ref[4:]
+
+	var bucket_items []remote.DirEntry
+	bucket_items, err = fs.ReadDir(bucket)
+	if err != nil {
+		return
+	}
+
+	for _, item := range bucket_items {
+		if !item.IsDir {
+			if strings.HasPrefix(item.Name, unknown_part) {
+				_, err = hex.Decode(object_hash[:], []byte(ref[0:4]+item.Name))
+				return
+			}
+		}
+	}
+
+	err = ErrBadRef
+	return
+}
+
+// Pull only objects associated with a tag or an abbreviated object hash
+func (repo *Repository) Shadow(fs remote.Fs, ref string, force bool) (err error) {
+	pq := new_pull_queue()
+
+	var tags []string
+	tags, err = repo.list_remote_tags(fs)
+	if err != nil {
+		return
+	}
+
+	for _, tag := range tags {
+		if tag == ref {
+			err = repo.pull_remote_tag(pq, fs, ref, force)
+			if err != nil {
+				return
+			}
+			break
+		}
+	}
+
+	var (
+		object_hash cas.ContentID
+		prefix      cas.Prefix
+	)
+	object_hash, err = repo.deabbreviate_remote_hash(fs, ref)
+	if err != nil {
+		return
+	}
+
+	// find what kind of object this is, so its dependencies can be fetched
+	prefix, _, err = repo.fetch_object(fs, object_hash)
+	if err != nil {
+		return
+	}
+
+	switch prefix {
+	case cas.Commit:
+		err = repo.pull_remote_commits(pq, fs, object_hash)
+	case cas.Tree:
+		err = repo.pull_remote_tree(pq, fs, object_hash)
+	case cas.File:
+		err = repo.pull_remote_file(pq, fs, object_hash)
+	}
+
+	if err != nil {
+		return
 	}
 
 	err = repo.pull_queue(fs, pq)

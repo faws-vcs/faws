@@ -1,4 +1,4 @@
-package commit_tree
+package commit
 
 import (
 	"os"
@@ -12,29 +12,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var commit_tree_cmd = cobra.Command{
-	Use:     "commit-tree tree-hash",
-	Short:   helpinfo.Text["commit-tree"],
+var commit_cmd = cobra.Command{
+	Use:     "commit",
+	Short:   helpinfo.Text["commit"],
 	GroupID: "repo",
-	Run:     run_commit_tree_cmd,
+	Run:     run_commit_cmd,
 }
 
 func init() {
-	flags := commit_tree_cmd.Flags()
+	flags := commit_cmd.Flags()
 	flags.StringP("tag", "t", "", "a tag is required to make a commit")
 	flags.StringP("parent", "p", "", "optionally, you can base this commit off a parent commit")
 	flags.StringP("sign", "s", "", "specify a signing identity other than your current primary")
 	flags.StringP("tree-date", "d", "", "specify the date of the tree object either in UNIX or DD.MM.YYYY format")
 	flags.StringP("commit-date", "c", "", "specify the date of the commit object either in UNIX or DD.MM.YYYY format")
-	root.RootCmd.AddCommand(&commit_tree_cmd)
+	root.RootCmd.AddCommand(&commit_cmd)
 }
 
-func run_commit_tree_cmd(cmd *cobra.Command, args []string) {
-	if len(args) < 1 {
-		cmd.Help()
-		os.Exit(1)
-	}
-
+func run_commit_cmd(cmd *cobra.Command, args []string) {
 	app.OpenConfiguration()
 
 	now := time.Now().Unix()
@@ -71,14 +66,13 @@ func run_commit_tree_cmd(cmd *cobra.Command, args []string) {
 		app.Fatal(err)
 	}
 
-	var params repository.CommitTreeParams
+	var params repository.CommitParams
 	params.Directory = working_directory
 	params.TreeDate = now
 	params.CommitDate = now
 	params.Tag = tag
 	params.Parent = parent_commit
 	params.Sign = signing_identity
-	params.Tree = args[0]
 	if tree_date != "" {
 		params.TreeDate, err = timestamp.Parse(tree_date)
 		if err != nil {
@@ -92,5 +86,5 @@ func run_commit_tree_cmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	repository.CommitTree(&params)
+	repository.Commit(&params)
 }

@@ -1,4 +1,4 @@
-package init
+package shadow
 
 import (
 	"os"
@@ -10,19 +10,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var pull_cmd = cobra.Command{
-	Use:     "pull remote",
-	Short:   helpinfo.Text["pull"],
+var shadow_cmd = cobra.Command{
+	Use:     "shadow remote ref",
+	Short:   helpinfo.Text["shadow"],
 	GroupID: "remote",
-	Run:     run_pull_cmd,
+	Run:     run_shadow_cmd,
 }
 
 func init() {
-	root.RootCmd.AddCommand(&pull_cmd)
+	root.RootCmd.AddCommand(&shadow_cmd)
 }
 
-func run_pull_cmd(cmd *cobra.Command, args []string) {
-	if len(args) == 0 {
+func run_shadow_cmd(cmd *cobra.Command, args []string) {
+	if len(args) < 2 {
 		cmd.Help()
 		os.Exit(1)
 	}
@@ -37,9 +37,10 @@ func run_pull_cmd(cmd *cobra.Command, args []string) {
 	}
 
 	// initialize the repository
-	var params = repository.PullParams{
+	var params = repository.ShadowParams{
 		Directory: working_directory,
 		Remote:    args[0],
+		Ref:       args[1],
 	}
-	repository.Pull(&params)
+	repository.Shadow(&params)
 }

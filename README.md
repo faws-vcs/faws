@@ -5,6 +5,16 @@ An experimental version control system for managing large volumes of game files,
 > [!WARNING]
 > It might not be good idea to use Faws for serious archival purposes just yet. Your files could be lost.
 
+
+###### Install
+
+```
+git clone https://github.com/faws-vcs/faws faws && cd faws
+go install github.com/faws-vcs/faws
+```
+
+###### Usage
+
 ```
 manage authorship identities
   id create    create a new identity for authoring commits
@@ -15,7 +25,7 @@ manage authorship identities
 
 sync objects between local and remote repositories
   pull         download a remote into the current directory
-  shadow       download the minimum number of objects to checkout a specific commit/tree/file object, creating a "shadow" of the repository
+  shadow       download the minimum number of objects to checkout a specific commit/tree/file object, creating  a "shadow" of the repository
 
 manage repository state
   init         create an empty repository in the current directory
