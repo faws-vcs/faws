@@ -47,20 +47,6 @@ func new_pull_queue() (pq *pull_queue) {
 	return
 }
 
-// type pull_list[T any] struct {
-// 	Count uint32
-// }
-
-// type pull_queue_entry struct {
-// 	Object cas.ContentID
-// 	Prev   *pull_queue_entry
-// }
-
-// type pull_queue struct {
-// 	trees   pull_list[]
-// 	commits pull_queue_entry
-// }
-
 func (repo *Repository) remote_cache_path(object_hash cas.ContentID) string {
 	s := object_hash.String()
 	return "objects/" + s[0:2] + "/" + s[2:4] + "/" + s[4:]

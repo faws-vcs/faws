@@ -29,19 +29,5 @@ func (repo *Repository) ParseRef(ref string) (hash cas.ContentID, err error) {
 		return
 	}
 
-	// for i := range repo.commit_manifest.Len() {
-	// 	commit_hash, commit_index_err := repo.commit_manifest.Index(i)
-	// 	if commit_index_err == nil {
-	// 		_, commit_info, commit_check_err := repo.check_commit(commit_hash)
-	// 		if commit_check_err == nil {
-	// 			if commit_info.Tag == ref {
-	// 				// found it
-	// 				hash = commit_hash
-	// 				return
-	// 			}
-	// 		}
-	// 	}
-	// }
-
 	return
 }

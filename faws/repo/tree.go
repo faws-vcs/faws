@@ -1,9 +1,6 @@
 package repo
 
 import (
-	"sort"
-	"strings"
-
 	"github.com/faws-vcs/faws/faws/repo/cache"
 	"github.com/faws-vcs/faws/faws/repo/cas"
 	"github.com/faws-vcs/faws/faws/repo/revision"
@@ -54,45 +51,6 @@ func (repo *Repository) load_tree(tree_hash cas.ContentID) (tree *revision.Tree,
 
 	tree = new(revision.Tree)
 	err = revision.UnmarshalTree(tree_data, tree)
-	return
-}
-
-// search a tree for a path.
-func (repo *Repository) find_tree_file(root_tree_hash cas.ContentID, path string) (file *revision.TreeEntry, err error) {
-	if path == "" {
-		err = ErrBadFilename
-		return
-	}
-
-	path_components := strings.Split(path, "/")
-
-	root_tree, tree_load_err := repo.load_tree(root_tree_hash)
-	if tree_load_err != nil {
-		err = tree_load_err
-		return
-	}
-
-	tree := root_tree
-
-	for _, path_component := range path_components {
-		index_of := sort.Search(len(tree.Entries), func(i int) bool {
-			return tree.Entries[i].Name >= path_component
-		})
-		if index_of < len(tree.Entries) && tree.Entries[index_of].Name == path_component {
-			file = &tree.Entries[index_of]
-			//
-			if file.Prefix == cas.Tree {
-				tree, err = repo.load_tree(file.Content)
-				if err != nil {
-					return
-				}
-			}
-		} else {
-			err = ErrTreeFileNotFound
-			return
-		}
-	}
-
 	return
 }
 

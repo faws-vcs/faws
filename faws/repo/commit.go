@@ -111,9 +111,6 @@ func (repo *Repository) CommitTree(signing *identity.Pair, info *revision.Commit
 		return
 	}
 
-	// add commit to the manifest
-	// repo.commits.add()
-
 	// ta-da!
 	return
 }
