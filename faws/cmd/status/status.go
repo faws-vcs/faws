@@ -11,9 +11,10 @@ import (
 )
 
 var status_cmd = cobra.Command{
-	Use:   "status",
-	Short: helpinfo.Text["status"],
-	Run:   run_status_cmd,
+	Use:     "status",
+	Short:   helpinfo.Text["status"],
+	GroupID: "repo",
+	Run:     run_status_cmd,
 }
 
 func init() {
