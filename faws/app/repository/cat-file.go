@@ -6,7 +6,6 @@ import (
 
 	"github.com/faws-vcs/faws/faws/app"
 	"github.com/faws-vcs/faws/faws/repo/cas"
-	"github.com/faws-vcs/faws/faws/timestamp"
 )
 
 type CatFileParams struct {
@@ -59,21 +58,7 @@ func CatFile(params *CatFileParams) {
 			}
 			list_tree_object(false, tree, "")
 		case cas.Commit:
-			author, commit, err := Repo.GetCommit(hash)
-			if err != nil {
-				app.Fatal(err)
-			}
-			fmt.Print("author ", author.String())
-			email := ""
-			if commit.AuthorAttributes.Email != "" {
-				email = fmt.Sprintf(" <%s>", commit.AuthorAttributes.Email)
-			}
-			fmt.Printf(" (%s%s)", commit.AuthorAttributes.Nametag, email)
-			fmt.Println()
-			fmt.Println("tag", commit.Tag)
-			fmt.Println("tree", commit.Tree)
-			fmt.Println("commit date", timestamp.Format(commit.CommitDate), commit.CommitDate)
-			fmt.Println("tree date", timestamp.Format(commit.TreeDate), commit.TreeDate)
+			display_commit(hash)
 		case cas.File:
 			var file_part cas.ContentID
 			for len(object) > 0 {
