@@ -42,8 +42,13 @@ func (repo *Repository) CachedFiles() []cache.IndexEntry {
 
 func (repo *Repository) EmptyCache() (err error) {
 	entries := repo.index.entries
-	for _, entry := range entries {
-		if err = repo.Uncache(entry.Path); err != nil {
+	paths := make([]string, len(entries))
+	for index, entry := range entries {
+		paths[index] = entry.Path
+	}
+
+	for _, path := range paths {
+		if err = repo.Uncache(path); err != nil {
 			return
 		}
 	}
@@ -130,11 +135,13 @@ func (repo *Repository) Cache(path, origin string) (err error) {
 	if !strings.HasSuffix(directory_path, "/") {
 		directory_path += "/"
 	}
-	for _, entry := range repo.index.entries {
+	entries := repo.index.entries
+	for _, entry := range entries {
 		if strings.HasPrefix(entry.Path, directory_path) {
 			err = fmt.Errorf("faws/repo/cache: path prefix is already used as a directory")
 			return
 		}
+
 		if entry.Path == path {
 			if err = repo.Uncache(path); err != nil {
 				return
@@ -223,6 +230,7 @@ func (repo *Repository) Uncache(path string) (err error) {
 			)
 			prefix, file, err = repo.objects.Load(entry.File)
 			if err != nil {
+				err = fmt.Errorf("%w: %s", err, entry.Path)
 				return
 			}
 			if prefix != cas.File {
@@ -249,7 +257,7 @@ func (repo *Repository) Uncache(path string) (err error) {
 		return
 	}
 
-	err = fmt.Errorf("faws/repo/cache: path not found")
+	err = fmt.Errorf("faws/repo/cache: path not found: '%s'", path)
 	return
 }
 

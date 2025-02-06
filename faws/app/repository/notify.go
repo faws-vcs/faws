@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/dustin/go-humanize"
+	"github.com/faws-vcs/faws/faws/app"
 	"github.com/faws-vcs/faws/faws/repo"
 	"github.com/faws-vcs/faws/faws/repo/cas"
 )
@@ -34,6 +35,8 @@ var (
 
 func notify(ev repo.Ev, args ...any) {
 	switch ev {
+	case repo.EvCacheFile:
+		app.Info("caching", args[0], args[1])
 	case repo.EvPullTag:
 	case repo.EvPullObject:
 		var (

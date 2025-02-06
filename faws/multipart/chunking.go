@@ -33,8 +33,9 @@ func NewChunker(file io.ReadSeeker) (chunker Chunker, err error) {
 			return
 		}
 		if err != nil {
-			fmt.Println("mpq chunker: ", err)
+			panic(err)
 		}
+		fmt.Println("mpq failed to start: ", err)
 	default:
 	}
 
