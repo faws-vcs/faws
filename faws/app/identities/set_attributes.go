@@ -40,7 +40,7 @@ func SetAttributes(params *SetAttributesParams) {
 		app.Log("setting nametag")
 		// nametag can't already be in use
 		in_use_id, err := ring.Lookup(params.Attributes.Nametag)
-		if err == nil {
+		if err == nil && in_use_id != id {
 			app.Fatal("'"+params.Attributes.Nametag+"'", "already in use", "("+in_use_id.String()+")")
 		}
 
