@@ -66,6 +66,11 @@ func display_commit(commit_hash cas.ContentID) {
 }
 
 func ViewLog(params *ViewLogParams) {
+	app.Open()
+	defer func() {
+		app.Close()
+	}()
+
 	err := Open(params.Directory)
 	if err != nil {
 		app.Fatal(err)

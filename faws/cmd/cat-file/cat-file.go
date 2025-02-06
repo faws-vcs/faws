@@ -29,8 +29,6 @@ func run_cat_file_cmd(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	app.OpenConfiguration()
-
 	object := args[len(args)-1]
 
 	object_type := ""

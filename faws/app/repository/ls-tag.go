@@ -11,6 +11,11 @@ type ListTagsParams struct {
 }
 
 func ListTags(params *ListTagsParams) {
+	app.Open()
+	defer func() {
+		app.Close()
+	}()
+
 	if err := Open(params.Directory); err != nil {
 		app.Fatal(err)
 		return

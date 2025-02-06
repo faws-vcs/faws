@@ -9,7 +9,7 @@ import (
 
 var Configuration config.Configuration
 
-func OpenConfiguration() {
+func Open() {
 	directory := os.Getenv("FAWS_CONFIG")
 
 	if directory == "" {
@@ -21,6 +21,12 @@ func OpenConfiguration() {
 	}
 
 	if err := Configuration.Open(directory); err != nil {
+		Fatal(err)
+	}
+}
+
+func Close() {
+	if err := Configuration.Close(); err != nil {
 		Fatal(err)
 	}
 }

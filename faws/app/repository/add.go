@@ -12,6 +12,11 @@ type AddFileParams struct {
 }
 
 func AddFile(params *AddFileParams) {
+	app.Open()
+	defer func() {
+		app.Close()
+	}()
+
 	if err := Open(params.Directory); err != nil {
 		app.Fatal(err)
 	}

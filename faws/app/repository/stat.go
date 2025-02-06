@@ -9,6 +9,11 @@ type StatParams struct {
 }
 
 func Stat(params *StatParams) {
+	app.Open()
+	defer func() {
+		app.Close()
+	}()
+
 	err := Open(params.Directory)
 	if err != nil {
 		app.Fatal(err)

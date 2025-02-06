@@ -11,6 +11,11 @@ type WriteTreeParams struct {
 }
 
 func WriteTree(params *WriteTreeParams) {
+	app.Open()
+	defer func() {
+		app.Close()
+	}()
+
 	if err := Open(params.Directory); err != nil {
 		app.Fatal(err)
 	}

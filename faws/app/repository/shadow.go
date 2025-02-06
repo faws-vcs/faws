@@ -13,6 +13,11 @@ type ShadowParams struct {
 }
 
 func Shadow(params *ShadowParams) {
+	app.Open()
+	defer func() {
+		app.Close()
+	}()
+
 	if !repo.Exists(params.Directory) {
 		if err := repo.Initialize(params.Directory, false); err != nil {
 			app.Fatal(err)

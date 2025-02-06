@@ -11,6 +11,11 @@ type InitParams struct {
 }
 
 func Init(p *InitParams) {
+	app.Open()
+	defer func() {
+		app.Close()
+	}()
+
 	initialized := repo.Exists(p.Directory)
 	reinitialize := false
 

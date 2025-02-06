@@ -56,7 +56,12 @@ func list_identity_entry(params *ListParams, entry *identity.RingEntry) {
 }
 
 func List(params *ListParams) {
-	ring_path := app.Configuration.Ring().Path()
+	app.Open()
+	defer func() {
+		app.Close()
+	}()
+
+	ring_path := app.Configuration.RingPath()
 	app.Header(ring_path)
 
 	for entry := range app.Configuration.Ring().Entries() {

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/dustin/go-humanize"
 	"github.com/faws-vcs/faws/faws/repo"
@@ -24,6 +25,7 @@ func prefix(p cas.Prefix) string {
 }
 
 var (
+	guard            sync.Mutex
 	in_progress      bool
 	objects_received int
 	objects_in_queue int
@@ -40,6 +42,7 @@ func notify(ev repo.Ev, args ...any) {
 			object_size   = args[2].(int)
 		)
 
+		guard.Lock()
 		bytes_received += uint64(object_size)
 		objects_received++
 		var msg string
@@ -59,8 +62,11 @@ func notify(ev repo.Ev, args ...any) {
 				humanize.Bytes(bytes_received))
 		}
 		fmt.Printf("\r%s", msg)
+		guard.Unlock()
 	case repo.EvPullQueueCount:
+		guard.Lock()
 		in_progress = true
 		objects_in_queue = args[0].(int)
+		guard.Unlock()
 	}
 }

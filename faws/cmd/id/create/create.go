@@ -27,8 +27,6 @@ func init() {
 }
 
 func run_create_cmd(cmd *cobra.Command, args []string) {
-	app.OpenConfiguration()
-
 	flags := cmd.Flags()
 	nametag, err := flags.GetString("nametag")
 	if err != nil {

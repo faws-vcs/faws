@@ -19,6 +19,11 @@ type CommitParams struct {
 }
 
 func Commit(params *CommitParams) {
+	app.Open()
+	defer func() {
+		app.Close()
+	}()
+
 	if err := Open(params.Directory); err != nil {
 		app.Fatal(err)
 	}

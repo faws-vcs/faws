@@ -22,8 +22,6 @@ func init() {
 }
 
 func run_ls_tags_cmd(cmd *cobra.Command, args []string) {
-	app.OpenConfiguration()
-
 	// use working directory as default repository location
 	working_directory, err := os.Getwd()
 	if err != nil {

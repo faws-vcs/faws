@@ -34,6 +34,11 @@ func list_tree_object(recurse bool, tree *revision.Tree, path string) {
 }
 
 func ListTree(params *ListTreeParams) {
+	app.Open()
+	defer func() {
+		app.Close()
+	}()
+
 	if err := Open(params.Directory); err != nil {
 		app.Fatal(err)
 	}

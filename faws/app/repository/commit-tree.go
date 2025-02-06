@@ -15,6 +15,11 @@ type CommitTreeParams struct {
 }
 
 func CommitTree(params *CommitTreeParams) {
+	app.Open()
+	defer func() {
+		app.Close()
+	}()
+
 	if err := Open(params.Directory); err != nil {
 		app.Fatal(err)
 	}

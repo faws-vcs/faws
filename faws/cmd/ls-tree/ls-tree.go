@@ -29,8 +29,6 @@ func run_ls_tree_cmd(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	app.OpenConfiguration()
-
 	recurse, err := cmd.Flags().GetBool("recurse")
 	if err != nil {
 		panic(err)

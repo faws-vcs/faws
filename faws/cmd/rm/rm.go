@@ -24,8 +24,6 @@ func init() {
 }
 
 func run_rm_cmd(cmd *cobra.Command, args []string) {
-	app.OpenConfiguration()
-
 	recurse, err := cmd.Flags().GetBool("recurse")
 	if err != nil {
 		app.Fatal(err)

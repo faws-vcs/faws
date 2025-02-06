@@ -29,8 +29,6 @@ func run_checkout_cmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	app.OpenConfiguration()
-
 	flags := cmd.Flags()
 	overwrite, err := flags.GetBool("overwrite")
 	if err != nil {

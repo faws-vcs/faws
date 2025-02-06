@@ -30,8 +30,6 @@ func init() {
 }
 
 func run_commit_cmd(cmd *cobra.Command, args []string) {
-	app.OpenConfiguration()
-
 	now := time.Now().Unix()
 
 	// use working directory as default repository location

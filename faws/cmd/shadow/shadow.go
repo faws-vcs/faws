@@ -27,8 +27,6 @@ func run_shadow_cmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	app.OpenConfiguration()
-
 	// use working directory as default repository location
 	working_directory, err := os.Getwd()
 	if err != nil {

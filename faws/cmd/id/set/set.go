@@ -38,8 +38,6 @@ func run_set_cmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	app.OpenConfiguration()
-
 	flags := cmd.Flags()
 
 	var set_identity_attributes_params identities.SetAttributesParams

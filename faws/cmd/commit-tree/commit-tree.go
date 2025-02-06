@@ -35,8 +35,6 @@ func run_commit_tree_cmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	app.OpenConfiguration()
-
 	now := time.Now().Unix()
 
 	// use working directory as default repository location

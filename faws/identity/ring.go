@@ -25,7 +25,6 @@ type ring_public_entry struct {
 
 // Ring implements a keyring of identities
 type Ring struct {
-	path string
 	// identities that we trust
 	public []ring_public_entry
 	// identities that belong to us
@@ -255,18 +254,7 @@ func (ring *Ring) RemoveIdentity(id ID) (err error) {
 	return
 }
 
-func (ring *Ring) Path() string {
-	return ring.path
-}
-
-func (ring *Ring) Save() (err error) {
-	err = SaveRing(ring.path, ring)
-	return
-}
-
-func LoadRing(filename string, ring *Ring) (err error) {
-	ring.path = filename
-
+func ReadRing(filename string, ring *Ring) (err error) {
 	var ring_data []byte
 	ring_data, err = os.ReadFile(filename)
 	if err != nil {
@@ -329,9 +317,7 @@ func LoadRing(filename string, ring *Ring) (err error) {
 	return
 }
 
-func SaveRing(filename string, ring *Ring) (err error) {
-	ring.path = filename
-
+func WriteRing(filename string, ring *Ring) (err error) {
 	data := make([]byte, 8)
 	binary.LittleEndian.PutUint32(data[0:4], uint32(len(ring.public)))
 	binary.LittleEndian.PutUint32(data[4:8], uint32(len(ring.secret)))

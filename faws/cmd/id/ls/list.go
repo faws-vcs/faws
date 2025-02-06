@@ -23,9 +23,6 @@ func init() {
 }
 
 func run_list_cmd(cmd *cobra.Command, args []string) {
-	// Ensure open configuration
-	app.OpenConfiguration()
-
 	//
 	flags := cmd.Flags()
 	public_only, err := flags.GetBool("trusted")

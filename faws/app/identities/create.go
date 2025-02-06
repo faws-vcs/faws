@@ -10,6 +10,10 @@ type CreateParams struct {
 }
 
 func Create(params *CreateParams) {
+	app.Open()
+	defer func() {
+		app.Close()
+	}()
 	ring := app.Configuration.Ring()
 	id, primary, err := ring.CreateIdentity(&params.Attributes)
 	if err != nil {
@@ -20,8 +24,5 @@ func Create(params *CreateParams) {
 		app.Warning("it is now your primary ID")
 	} else {
 		app.Warning("however, it is not your primary ID")
-	}
-	if err = ring.Save(); err != nil {
-		app.Fatal(err)
 	}
 }

@@ -3,7 +3,6 @@ package primary
 import (
 	"os"
 
-	"github.com/faws-vcs/faws/faws/app"
 	"github.com/faws-vcs/faws/faws/app/identities"
 	"github.com/faws-vcs/faws/faws/cmd/helpinfo"
 	"github.com/faws-vcs/faws/faws/cmd/id"
@@ -25,8 +24,6 @@ func run_primary_cmd(cmd *cobra.Command, args []string) {
 		cmd.Help()
 		os.Exit(1)
 	}
-
-	app.OpenConfiguration()
 
 	var set_primary_params identities.SetPrimaryParams
 	set_primary_params.ID = args[0]

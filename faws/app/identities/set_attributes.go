@@ -18,6 +18,11 @@ type SetAttributesParams struct {
 }
 
 func SetAttributes(params *SetAttributesParams) {
+	app.Open()
+	defer func() {
+		app.Close()
+	}()
+
 	ring := app.Configuration.Ring()
 
 	id, err := app.Configuration.Ring().Deabbreviate(params.ID)
@@ -66,10 +71,6 @@ func SetAttributes(params *SetAttributesParams) {
 	}
 
 	if err := ring.SetAttributesSecret(id, &attributes); err != nil {
-		return
-	}
-
-	if err := ring.Save(); err != nil {
 		return
 	}
 }
