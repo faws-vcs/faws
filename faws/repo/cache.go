@@ -13,6 +13,7 @@ import (
 	"github.com/faws-vcs/faws/faws/multipart"
 	"github.com/faws-vcs/faws/faws/repo/cache"
 	"github.com/faws-vcs/faws/faws/repo/cas"
+	"github.com/faws-vcs/faws/faws/repo/revision"
 )
 
 type cache_index struct {
@@ -143,6 +144,11 @@ func (repo *Repository) Cache(path, origin string) (err error) {
 
 	var entry cache.IndexEntry
 	entry.Path = path
+	if fi.Mode()&0111 != 0 {
+		// if any executable bit is set, the file is an executable.
+		entry.Mode = revision.FileModeExecutable
+	}
+
 	var (
 		origin_file *os.File
 		chunker     multipart.Chunker
