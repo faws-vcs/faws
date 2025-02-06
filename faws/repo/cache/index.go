@@ -35,30 +35,6 @@ type Index struct {
 	Entries      []IndexEntry
 }
 
-// func (index *Index) search_entry(path string) (i int) {
-// 	i = sort.Search(len(index.Entries), func(i int) bool {
-// 		return index.Entries[i].Path >= path
-// 	})
-// 	return
-// }
-
-// func (index *Index) insert_entry(entry IndexEntry) (err error) {
-// 	i := index.search_entry(entry.Path)
-// 	if i < len(index.Entries) && index.Entries[i].Path == entry.Path {
-// 		// replace
-// 		index.Entries[i] = entry
-// 	} else {
-// 		index.Entries = slices.Insert(index.Entries, i, entry)
-// 	}
-
-// 	return
-// }
-
-// func (index *Index) Add(path, origin string, objects *cas.Set) (err error) {
-
-// 	return
-// }
-
 func MarshalIndex(index *Index) (data []byte, err error) {
 	var cache_objects_count [4]byte
 	binary.LittleEndian.PutUint32(cache_objects_count[:], uint32(len(index.CacheObjects)))

@@ -32,50 +32,6 @@ type Tree struct {
 	Files []File
 }
 
-// // Load the entire tree into memory
-// func (cache_tree *Tree) Load(objects *cas.Set, root cas.ContentID) (err error) {
-// 	var (
-// 		prefix             cas.Prefix
-// 		revision_tree_data []byte
-// 		revision_tree      revision.Tree
-// 	)
-// 	prefix, revision_tree_data, err = objects.Load(root)
-// 	if prefix != cas.Tree {
-// 		err = ErrTreeInvalidPrefix
-// 		return
-// 	}
-// 	if err = revision.UnmarshalTree(revision_tree_data, &revision_tree); err != nil {
-// 		return
-// 	}
-// 	cache_tree.Files = make([]File, len(revision_tree.Files))
-// 	// convert
-// 	for i := range cache_tree.Files {
-// 		revision_file := &revision_tree.Files[i]
-// 		cache_file := &cache_tree.Files[i]
-
-// 		cache_file.Name = revision_file.Name
-// 		cache_file.Mode = revision_file.Mode
-// 		cache_file.Prefix = revision_file.Prefix
-
-// 		if revision_file.Prefix == cas.Tree {
-// 			// file entry is a directory
-// 			if len(revision_file.Content) == 0 {
-// 				err = ErrTreeLacksContent
-// 				return
-// 			}
-// 			cache_file.Tree = new(Tree)
-// 			if err = cache_file.Tree.Load(objects, revision_file.Content[0]); err != nil {
-// 				return
-// 			}
-// 		} else if revision_file.Prefix == cas.File {
-// 			// file has content
-// 			cache_file.Content = revision_file.Content
-// 		}
-// 	}
-
-// 	return
-// }
-
 // Store the cache tree inside the CAS of a repository
 func (cache_tree *Tree) Store(objects *cas.Set) (root cas.ContentID, err error) {
 	var revision_tree revision.Tree
