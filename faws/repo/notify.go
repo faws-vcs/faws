@@ -3,7 +3,9 @@ package repo
 type Ev uint8
 
 const (
-	EvPullTag = iota
+	EvCacheFile = iota
+	EvCacheFilePart
+	EvPullTag
 	// ( object cas.ContentID, size int )
 	EvPullObject
 	// ( count int )

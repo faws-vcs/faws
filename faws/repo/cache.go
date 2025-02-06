@@ -158,7 +158,8 @@ func (repo *Repository) Cache(path, origin string) (err error) {
 		return
 	}
 
-	fmt.Println("scanning", origin)
+	repo.notify(EvCacheFile, path, origin)
+
 	chunker, err = multipart.NewChunker(origin_file)
 	if err != nil {
 		return
