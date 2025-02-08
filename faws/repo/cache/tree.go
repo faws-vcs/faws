@@ -134,7 +134,7 @@ func (tree *Tree) build_index_entry(linked_file *IndexEntry) (err error) {
 		var file File
 		file.Prefix = cas.File
 		file.Name = filename
-		file.Mode = 0
+		file.Mode = linked_file.Mode
 		file.File = linked_file.File
 		current_tree.Files = slices.Insert(current_tree.Files, entry_index, file)
 	}
