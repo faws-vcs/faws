@@ -1,6 +1,9 @@
 package repository
 
 import (
+	"bytes"
+	"io"
+	"regexp"
 	"time"
 
 	"github.com/faws-vcs/faws/faws/app"
@@ -14,7 +17,10 @@ type MassReviseParams struct {
 	// if true, remove old commits and tree objects
 	// if false, create new commits based on old commits while retaining old information
 	Destructive bool
-	SetFileMode bool
+	// if len() != 0, match bytes beginning with this signature
+	MatchFileMagic []byte
+	MatchTag       *regexp.Regexp
+	SetFileMode    bool
 	// the new file mode for all files
 	NewFileMode revision.FileMode
 }
@@ -22,7 +28,7 @@ type MassReviseParams struct {
 func rewrite_tree(params *MassReviseParams, tree_hash cas.ContentID) (new_tree_hash cas.ContentID) {
 	tree, err := Repo.Tree(tree_hash)
 	if err != nil {
-		app.Fatal(err)
+		app.Fatal("getting tree", err, tree_hash)
 	}
 
 	new_tree := *tree
@@ -32,15 +38,31 @@ func rewrite_tree(params *MassReviseParams, tree_hash cas.ContentID) (new_tree_h
 		if entry.Prefix == cas.Tree {
 			entry.Mode = 0
 			entry.Content = rewrite_tree(params, entry.Content)
-		} else {
-			if params.SetFileMode {
-				entry.Mode = params.NewFileMode
+		} else if entry.Prefix == cas.File {
+			var match = true
+			if len(params.MatchFileMagic) != 0 {
+				file, err := Repo.OpenFile(entry.Content)
+				if err != nil {
+					app.Fatal("opening file", entry.Content, err)
+				}
+
+				file_magic := make([]byte, len(params.MatchFileMagic))
+				if _, err = io.ReadFull(file, file_magic); err != nil {
+					match = false
+				} else {
+					if !bytes.Equal(params.MatchFileMagic, file_magic[:]) {
+						match = false
+					}
+				}
+				file.Close()
+			}
+
+			if match {
+				if params.SetFileMode {
+					entry.Mode = params.NewFileMode
+				}
 			}
 		}
-	}
-
-	if params.Destructive {
-		Repo.RemoveObject(tree_hash)
 	}
 
 	new_tree_data, err := revision.MarshalTree(&new_tree)
@@ -57,14 +79,16 @@ func rewrite_tree(params *MassReviseParams, tree_hash cas.ContentID) (new_tree_h
 }
 
 func rewrite_tag(params *MassReviseParams, tag string) {
+	app.Info("rewriting tag", tag)
+
 	commit_hash, err := Repo.ParseRef(tag)
 	if err != nil {
-		app.Fatal(err)
+		app.Fatal("parse ref", err)
 	}
 
 	_, commit_info, err := Repo.GetCommit(commit_hash)
 	if err != nil {
-		app.Fatal(err)
+		app.Fatal("get commit", err)
 	}
 
 	new_commit_info := *commit_info
@@ -117,7 +141,11 @@ func MassRevise(params *MassReviseParams) {
 	}
 
 	for _, tag := range tags {
-		rewrite_tag(params, tag.Name)
+		if params.MatchTag == nil {
+			rewrite_tag(params, tag.Name)
+		} else if params.MatchTag.MatchString(tag.Name) {
+			rewrite_tag(params, tag.Name)
+		}
 	}
 
 	Close()

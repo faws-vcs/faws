@@ -1,6 +1,8 @@
 package repo
 
-import "github.com/faws-vcs/faws/faws/repo/cas"
+import (
+	"github.com/faws-vcs/faws/faws/repo/cas"
+)
 
 func (repo *Repository) LoadObject(id cas.ContentID) (prefix cas.Prefix, object []byte, err error) {
 	prefix, object, err = repo.objects.Load(id)

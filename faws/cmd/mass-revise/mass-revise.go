@@ -1,7 +1,9 @@
 package rewrite_commits
 
 import (
+	"encoding/hex"
 	"os"
+	"regexp"
 	"strconv"
 
 	"github.com/faws-vcs/faws/faws/app"
@@ -23,24 +25,37 @@ func init() {
 	flag := mass_revise_cmd.Flags()
 	flag.Bool("destroy", false, "destroy all current commits and replace with new ones")
 	flag.StringP("mode", "m", "", "the new filemode")
+	flag.String("match-tag", "", "only revise certain tags matching this regex")
+	flag.String("match-file-magic", "", "only revise files beginning with these bytes")
 	root.RootCmd.AddCommand(&mass_revise_cmd)
 }
 
 func run_mass_revise_cmd(cmd *cobra.Command, args []string) {
-	if len(args) < 1 {
-		cmd.Help()
-		os.Exit(1)
-	}
-
 	flag := cmd.Flags()
 	m, err := flag.GetString("mode")
 	if err != nil {
+		app.Warning(err)
 		cmd.Help()
 		os.Exit(1)
 	}
 
-	destroy, err := cmd.Flags().GetBool("destroy")
+	destroy, err := flag.GetBool("destroy")
 	if err != nil {
+		app.Warning(err)
+		cmd.Help()
+		os.Exit(1)
+	}
+
+	match_file_magic, err := flag.GetString("match-file-magic")
+	if err != nil {
+		app.Warning(err)
+		cmd.Help()
+		os.Exit(1)
+	}
+
+	match_tag, err := flag.GetString("match-tag")
+	if err != nil {
+		app.Warning(err)
 		cmd.Help()
 		os.Exit(1)
 	}
@@ -63,6 +78,20 @@ func run_mass_revise_cmd(cmd *cobra.Command, args []string) {
 		}
 		params.SetFileMode = true
 		params.NewFileMode = revision.FileMode(mode)
+	}
+
+	if match_file_magic != "" {
+		params.MatchFileMagic, err = hex.DecodeString(match_file_magic)
+		if err != nil {
+			app.Fatal(err)
+		}
+	}
+
+	if match_tag != "" {
+		params.MatchTag, err = regexp.CompilePOSIX(match_tag)
+		if err != nil {
+			app.Fatal(err)
+		}
 	}
 
 	repository.MassRevise(&params)
