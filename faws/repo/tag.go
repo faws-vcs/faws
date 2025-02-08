@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/faws-vcs/faws/faws/fs"
 	"github.com/faws-vcs/faws/faws/repo/cas"
 	"github.com/faws-vcs/faws/faws/repo/revision"
 	"github.com/faws-vcs/faws/faws/validate"
@@ -59,7 +60,7 @@ func (repo *Repository) write_tag(tag string, commit_hash cas.ContentID) (err er
 
 	path := filepath.Join(repo.directory, "tags", tag)
 
-	err = os.WriteFile(path, commit_hash[:], os.ModePerm)
+	err = os.WriteFile(path, commit_hash[:], fs.DefaultPerm)
 
 	return
 }

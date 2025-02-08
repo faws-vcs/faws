@@ -2,6 +2,8 @@ package cas
 
 import (
 	"os"
+
+	"github.com/faws-vcs/faws/faws/fs"
 )
 
 // Attempt to store a segment of data, returning the associated ContentID.
@@ -27,7 +29,7 @@ func (set *Set) Store(prefix Prefix, data []byte) (new bool, id ContentID, err e
 
 	// open file
 	var file *os.File
-	file, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+	file, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fs.DefaultPerm)
 	if err != nil {
 		return
 	}

@@ -14,7 +14,7 @@ var Text = map[string]string{
 	"id set":     "alter various identity attributes",
 
 	"pull":   "download a remote into the current directory",
-	"shadow": "download the minimum number of objects to checkout a specific commit/tree/file object, creating a \"shadow\" of the repository",
+	"shadow": "download the minimum portion of a remote necessary to checkout a specific commit or other object",
 	"push":   "push an object and all its dependencies to the remote",
 
 	"init":        "create an empty repository in the current directory",
@@ -29,6 +29,7 @@ var Text = map[string]string{
 	"cat-file":    "provide contents or details of repository objects",
 	"ls-tag":      "list tags and their associated commit hashes",
 	"ls-tree":     "list the contents of a tree object",
+	"mass-revise": "perfom bulk edits of commits and trees",
 }
 
 var Categories = []CategoryEntry{
@@ -68,6 +69,7 @@ var Categories = []CategoryEntry{
 			"log",
 			"cat-file",
 			"checkout",
+			"mass-revise",
 		},
 	},
 }

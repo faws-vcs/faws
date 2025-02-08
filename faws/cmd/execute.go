@@ -18,6 +18,7 @@ import (
 	_ "github.com/faws-vcs/faws/faws/cmd/log"
 	_ "github.com/faws-vcs/faws/faws/cmd/ls-tag"
 	_ "github.com/faws-vcs/faws/faws/cmd/ls-tree"
+	_ "github.com/faws-vcs/faws/faws/cmd/mass-revise"
 	_ "github.com/faws-vcs/faws/faws/cmd/pull"
 	_ "github.com/faws-vcs/faws/faws/cmd/rm"
 	_ "github.com/faws-vcs/faws/faws/cmd/shadow"

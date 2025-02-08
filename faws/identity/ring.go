@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/faws-vcs/faws/faws/fs"
 	"github.com/faws-vcs/faws/faws/validate"
 )
 
@@ -356,7 +357,7 @@ func WriteRing(filename string, ring *Ring) (err error) {
 		data = append(data, attributes_data...)
 	}
 
-	err = os.WriteFile(filename, data, os.ModePerm)
+	err = os.WriteFile(filename, data, fs.DefaultPerm)
 	return
 }
 

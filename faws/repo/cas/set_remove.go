@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 )
 
-func (set *Set) Delete(id ContentID) (err error) {
+func (set *Set) Remove(id ContentID) (err error) {
 	s := hex.EncodeToString(id[:])
 
 	prefix1 := filepath.Join(set.directory, s[0:2])

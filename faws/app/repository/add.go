@@ -1,6 +1,10 @@
 package repository
 
-import "github.com/faws-vcs/faws/faws/app"
+import (
+	"github.com/faws-vcs/faws/faws/app"
+	"github.com/faws-vcs/faws/faws/repo"
+	"github.com/faws-vcs/faws/faws/repo/revision"
+)
 
 type AddFileParams struct {
 	// The directory of the repository
@@ -9,6 +13,9 @@ type AddFileParams struct {
 	Path string
 	// The path
 	Origin string
+	// If true, set file mode to Mode
+	SetMode bool
+	Mode    revision.FileMode
 }
 
 func AddFile(params *AddFileParams) {
@@ -21,7 +28,12 @@ func AddFile(params *AddFileParams) {
 		app.Fatal(err)
 	}
 
-	if err := Repo.Cache(params.Path, params.Origin); err != nil {
+	var o []repo.CacheOption
+	if params.SetMode {
+		o = append(o, repo.CacheWithMode(params.Mode))
+	}
+
+	if err := Repo.Cache(params.Path, params.Origin, o...); err != nil {
 		app.Fatal(err)
 	}
 	if err := Close(); err != nil {

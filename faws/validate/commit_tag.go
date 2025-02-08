@@ -19,7 +19,7 @@ func CommitTag(tag string) (err error) {
 		return
 	}
 
-	if len(tag) > 39 {
+	if len(tag) > 120 {
 		err = ErrCommitTagTooBig
 		return
 	}

@@ -14,6 +14,14 @@ const (
 	FileModeExecutable FileMode = 1 << iota
 )
 
+func (m FileMode) String() string {
+	s := "-"
+	if m&FileModeExecutable != 0 {
+		s = "x"
+	}
+	return s
+}
+
 const (
 	MaxFileName    = 256
 	MaxTreeEntries = 1e7

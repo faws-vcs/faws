@@ -3,6 +3,8 @@ package repo
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/faws-vcs/faws/faws/fs"
 )
 
 // Initialize an empty repository at the directory.
@@ -15,7 +17,7 @@ func Initialize(directory string, reinitialize bool) (err error) {
 
 	// create directory if it doesn't exist
 	if _, not_found := os.Stat(directory); not_found != nil {
-		err = os.Mkdir(directory, os.ModePerm)
+		err = os.Mkdir(directory, fs.DefaultPerm)
 		if err != nil {
 			return
 		}
@@ -35,7 +37,7 @@ func Initialize(directory string, reinitialize bool) (err error) {
 	// create tags
 	tags_directory := filepath.Join(directory, "tags")
 	if _, not_found := os.Stat(tags_directory); not_found != nil {
-		err = os.Mkdir(tags_directory, os.ModePerm)
+		err = os.Mkdir(tags_directory, fs.DefaultPerm)
 		if err != nil {
 			return
 		}

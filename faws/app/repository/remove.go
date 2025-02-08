@@ -28,7 +28,7 @@ func RemoveFile(params *RemoveFileParams) {
 	index := Repo.CacheIndex()
 
 	if params.Path == "" {
-		if err := Repo.EmptyCache(); err != nil {
+		if err := Repo.ResetCache(); err != nil {
 			app.Fatal(err)
 		}
 	} else {

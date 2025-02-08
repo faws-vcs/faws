@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+
+	"github.com/faws-vcs/faws/faws/fs"
 )
 
 type Set struct {
@@ -28,7 +30,7 @@ func (set *Set) store_path(id ContentID) (path string, err error) {
 	if err != nil {
 		return
 	}
-	err = os.MkdirAll(prefix, os.ModePerm)
+	err = os.MkdirAll(prefix, fs.DefaultPerm)
 	if err != nil {
 		return
 	}

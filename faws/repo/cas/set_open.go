@@ -6,6 +6,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	fawsfs "github.com/faws-vcs/faws/faws/fs"
 )
 
 func (set *Set) Open(path string) (err error) {
@@ -16,7 +18,7 @@ func (set *Set) Open(path string) (err error) {
 			return
 		}
 
-		if err = os.Mkdir(path, os.ModePerm); err != nil {
+		if err = os.Mkdir(path, fawsfs.DefaultPerm); err != nil {
 			return
 		}
 		set_fi, err = os.Stat(path)

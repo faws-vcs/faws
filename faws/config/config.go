@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/faws-vcs/faws/faws/fs"
 	"github.com/faws-vcs/faws/faws/identity"
 )
 
@@ -15,7 +16,7 @@ type Configuration struct {
 func (config *Configuration) Open(directory string) (err error) {
 	// Ensure directory exists
 	if _, stat_err := os.Stat(directory); stat_err != nil {
-		err = os.MkdirAll(directory, os.ModePerm)
+		err = os.MkdirAll(directory, fs.DefaultPerm)
 		if err != nil {
 			return
 		}

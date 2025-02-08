@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/faws-vcs/faws/faws/fs"
 	"github.com/faws-vcs/faws/faws/repo/cas"
 	"github.com/faws-vcs/faws/faws/repo/revision"
 	"github.com/faws-vcs/faws/faws/validate"
@@ -29,7 +30,7 @@ func (repo *Repository) checkout_file(file_hash cas.ContentID, mode revision.Fil
 		return
 	}
 
-	perm := os.ModePerm
+	var perm os.FileMode = 0700
 	if mode&revision.FileModeExecutable != 0 {
 		perm |= 0111
 	}
@@ -82,7 +83,7 @@ func (repo *Repository) checkout_tree(tree_hash cas.ContentID, dest string, over
 		return
 	}
 
-	err = os.Mkdir(dest, os.ModePerm)
+	err = os.Mkdir(dest, fs.DefaultPerm)
 	if err != nil && !os.IsExist(err) {
 		return
 	}

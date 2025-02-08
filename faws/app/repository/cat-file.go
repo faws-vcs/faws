@@ -30,7 +30,7 @@ func CatFile(params *CatFileParams) {
 		app.Fatal(err)
 	}
 
-	prefix, object, err := Repo.Object(hash)
+	prefix, object, err := Repo.LoadObject(hash)
 	if err != nil {
 		app.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func CatFile(params *CatFileParams) {
 		for len(object) > 0 {
 			copy(file_part[:], object[:cas.ContentIDSize])
 			object = object[cas.ContentIDSize:]
-			_, part_object, err := Repo.Object(file_part)
+			_, part_object, err := Repo.LoadObject(file_part)
 			if err != nil {
 				app.Fatal(err)
 			}

@@ -86,7 +86,7 @@ func (repo *Repository) fetch_object(fs remote.Fs, object_hash cas.ContentID) (p
 
 		if received_object_hash != object_hash {
 			// if the hash isn't correct just delete it
-			repo.objects.Delete(received_object_hash)
+			repo.objects.Remove(received_object_hash)
 			err = ErrBadObject
 			return
 		}

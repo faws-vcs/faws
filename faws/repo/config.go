@@ -3,6 +3,8 @@ package repo
 import (
 	"encoding/json"
 	"os"
+
+	"github.com/faws-vcs/faws/faws/fs"
 )
 
 const Version = 1
@@ -30,6 +32,6 @@ func WriteConfig(filename string, config *Config) (err error) {
 		return
 	}
 
-	err = os.WriteFile(filename, data, os.ModePerm)
+	err = os.WriteFile(filename, data, fs.DefaultPerm)
 	return
 }

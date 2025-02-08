@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/faws-vcs/faws/faws/fs"
 	"github.com/faws-vcs/faws/faws/multipart"
 	"github.com/faws-vcs/faws/faws/repo/cache"
 	"github.com/faws-vcs/faws/faws/repo/cas"
@@ -40,7 +41,12 @@ func (repo *Repository) CachedFiles() []cache.IndexEntry {
 	return repo.index.entries
 }
 
-func (repo *Repository) EmptyCache() (err error) {
+func (repo *Repository) ResetCache() (err error) {
+	if len(repo.index.cache_objects) == 0 {
+		repo.index.entries = nil
+		return
+	}
+
 	entries := repo.index.entries
 	paths := make([]string, len(entries))
 	for index, entry := range entries {
@@ -89,7 +95,7 @@ func (repo *Repository) dereference_index_cache_object(object_hash cas.ContentID
 	}
 	references--
 	if references == 0 {
-		repo.objects.Delete(object_hash)
+		repo.objects.Remove(object_hash)
 		delete(repo.index.cache_objects, object_hash)
 		return
 	}
@@ -98,7 +104,21 @@ func (repo *Repository) dereference_index_cache_object(object_hash cas.ContentID
 
 // 	return
 
-func (repo *Repository) Cache(path, origin string) (err error) {
+type cache_options struct {
+	set_mode bool
+	mode     revision.FileMode
+}
+
+type CacheOption func(*cache_options)
+
+func CacheWithMode(mode revision.FileMode) CacheOption {
+	return func(c *cache_options) {
+		c.set_mode = true
+		c.mode = mode
+	}
+}
+
+func (repo *Repository) cache_file(o *cache_options, path, origin string) (err error) {
 	abs_origin, abs_err := filepath.Abs(origin)
 	if abs_err == nil {
 		origin = abs_origin
@@ -123,7 +143,7 @@ func (repo *Repository) Cache(path, origin string) (err error) {
 		}
 
 		for _, entry := range entries {
-			if err = repo.Cache(filepath.Join(path, entry.Name()), filepath.Join(origin, entry.Name())); err != nil {
+			if err = repo.cache_file(o, filepath.Join(path, entry.Name()), filepath.Join(origin, entry.Name())); err != nil {
 				return
 			}
 		}
@@ -151,9 +171,14 @@ func (repo *Repository) Cache(path, origin string) (err error) {
 
 	var entry cache.IndexEntry
 	entry.Path = path
-	if fi.Mode()&0111 != 0 {
-		// if any executable bit is set, the file is an executable.
-		entry.Mode = revision.FileModeExecutable
+
+	if o.set_mode {
+		entry.Mode = o.mode
+	} else {
+		if fi.Mode()&0111 != 0 {
+			// if any executable bit is set, the file is an executable.
+			entry.Mode = revision.FileModeExecutable
+		}
 	}
 
 	var (
@@ -215,6 +240,16 @@ func (repo *Repository) Cache(path, origin string) (err error) {
 	entry.File = file_id
 
 	err = repo.insert_cache_index_entry(entry)
+	return
+}
+
+func (repo *Repository) Cache(path, origin string, options ...CacheOption) (err error) {
+	var o cache_options
+	for _, option := range options {
+		option(&o)
+	}
+
+	err = repo.cache_file(&o, path, origin)
 	return
 }
 
@@ -283,6 +318,6 @@ func (repo *Repository) write_index() (err error) {
 		return
 	}
 
-	err = os.WriteFile(filepath.Join(repo.directory, "index"), index_data, os.ModePerm)
+	err = os.WriteFile(filepath.Join(repo.directory, "index"), index_data, fs.DefaultPerm)
 	return
 }
