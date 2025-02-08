@@ -321,3 +321,14 @@ func (repo *Repository) write_index() (err error) {
 	err = os.WriteFile(filepath.Join(repo.directory, "index"), index_data, fs.DefaultPerm)
 	return
 }
+
+func (repo *Repository) CacheSetFileMode(path string, mode revision.FileMode) (err error) {
+	i := repo.find_cache_index_entry(path)
+	if i < len(repo.index.entries) && repo.index.entries[i].Path == path {
+		repo.index.entries[i].Mode = mode
+		return
+	}
+
+	err = ErrCacheEntryNotFound
+	return
+}

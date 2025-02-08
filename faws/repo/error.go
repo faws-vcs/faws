@@ -19,4 +19,5 @@ var (
 	ErrCommitDuplicateTag      = fmt.Errorf("faws/repo: commit tag already exists in history")
 	ErrRepoNotExist            = fmt.Errorf("faws/repo: you are not currently in a Faws repository")
 	ErrCacheEntryCannotBeEmpty = fmt.Errorf("faws/repo: a file can't be added to the cache without a name")
+	ErrCacheEntryNotFound      = fmt.Errorf("faws/repo: a cache entry by that name was not found")
 )

@@ -12,6 +12,7 @@ import (
 	_ "github.com/faws-vcs/faws/faws/cmd/add"
 	_ "github.com/faws-vcs/faws/faws/cmd/cat-file"
 	_ "github.com/faws-vcs/faws/faws/cmd/checkout"
+	_ "github.com/faws-vcs/faws/faws/cmd/chmod"
 	_ "github.com/faws-vcs/faws/faws/cmd/commit"
 	_ "github.com/faws-vcs/faws/faws/cmd/commit-tree"
 	_ "github.com/faws-vcs/faws/faws/cmd/init"

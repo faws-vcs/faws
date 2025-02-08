@@ -20,6 +20,7 @@ var Text = map[string]string{
 	"init":        "create an empty repository in the current directory",
 	"add":         "add a file or directory to the index",
 	"rm":          "remove a file from the index",
+	"chmod":       "set the permission flag of a file in the index",
 	"status":      "list files in the index yet to be committed",
 	"write-tree":  "write cached files to a tree object",
 	"commit-tree": "create a new commit object using an already-created tree object",
@@ -29,7 +30,7 @@ var Text = map[string]string{
 	"cat-file":    "provide contents or details of repository objects",
 	"ls-tag":      "list tags and their associated commit hashes",
 	"ls-tree":     "list the contents of a tree object",
-	"mass-revise": "perfom bulk edits of commits and trees",
+	"mass-revise": "correct big mistakes across all tags",
 }
 
 var Categories = []CategoryEntry{
@@ -61,6 +62,7 @@ var Categories = []CategoryEntry{
 			"init",
 			"add",
 			"rm",
+			"chmod",
 			"status",
 			"write-tree",
 			"ls-tree",

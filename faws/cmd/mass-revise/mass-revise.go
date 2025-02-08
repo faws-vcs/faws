@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"os"
 	"regexp"
-	"strconv"
 
 	"github.com/faws-vcs/faws/faws/app"
 	"github.com/faws-vcs/faws/faws/app/repository"
@@ -72,12 +71,11 @@ func run_mass_revise_cmd(cmd *cobra.Command, args []string) {
 	}
 
 	if m != "" {
-		mode, err := strconv.ParseUint(m, 10, 8)
+		params.SetFileMode = true
+		params.NewFileMode, err = revision.ParseFileMode(m)
 		if err != nil {
 			app.Fatal(err)
 		}
-		params.SetFileMode = true
-		params.NewFileMode = revision.FileMode(mode)
 	}
 
 	if match_file_magic != "" {
