@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	min_chunk_size = 0x1000
+	min_chunk_size = 0x800000
 	max_chunk_size = 0x1000000
 
 	chunker_polynomial chunker.Pol = 0x3DA3358B4DC173

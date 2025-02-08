@@ -15,13 +15,20 @@ type Chunker interface {
 }
 
 func NewChunker(file io.ReadSeeker) (chunker Chunker, err error) {
+	var size int64
+	size, err = file.Seek(0, io.SeekEnd)
+	if err != nil {
+		return
+	}
+	file.Seek(0, io.SeekStart)
+	if size < min_chunk_size {
+		chunker = single_chunk{file}
+		return
+	}
+
 	// detect magic
 	var magic [4]byte
-
 	if _, err = io.ReadFull(file, magic[:]); err != nil {
-		err = nil
-		file.Seek(0, io.SeekStart)
-		chunker = new_generic_chunker(file)
 		return
 	}
 	file.Seek(0, io.SeekStart)

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
@@ -29,16 +30,20 @@ const (
 	mpq_section_block_table
 )
 
-var mpq_section_type_names = []string{
-	"extra data",
-	"userdata header",
-	"archive header",
-	"file block",
-	"HET table",
-	"BET table",
-	"hash table",
-	"block table",
-}
+var (
+	mpq_section_type_names = []string{
+		"extra data",
+		"userdata header",
+		"archive header",
+		"file block",
+		"HET table",
+		"BET table",
+		"hash table",
+		"block table",
+	}
+
+	block_table_decryption_key = crypto.HashString("(block table)", crypto.HashEncryptKey)
+)
 
 func (t mpq_section_type) String() string {
 	return mpq_section_type_names[t]
@@ -56,18 +61,20 @@ type mpq_section struct {
 //
 // then reading from
 type mpq_chunker struct {
-	buffer           []byte
 	archive_header   info.Header
 	archive_position int64
 	// the file
-	file_size   int64
-	file        io.ReadSeeker
-	file_reader *bufio.Reader
+	file_size    int64
+	file         io.ReadSeeker
+	file_reader  *bufio.Reader
+	chunk_reader Chunker
 	// sorted by offset
 	sections []mpq_section
 	index    int
 	// largest used offset
 	max_offset int64
+	// largest section size
+	max_section int64
 }
 
 func (c *mpq_chunker) insert_section(t mpq_section_type, offset int64) (err error) {
@@ -183,8 +190,7 @@ func (c *mpq_chunker) detect_block_table() (err error) {
 		return
 	}
 
-	decryption_key := crypto.HashString("(block table)", crypto.HashEncryptKey)
-	crypto.Decrypt(decryption_key, block_table_data)
+	crypto.Decrypt(block_table_decryption_key, block_table_data)
 	block_table := make([]info.BlockTableEntry, c.archive_header.BlockTableSize)
 	block_table_reader := bytes.NewReader(block_table_data)
 
@@ -210,6 +216,11 @@ func (c *mpq_chunker) detect_block_table() (err error) {
 			return
 		}
 	}
+
+	hi_block_table = nil
+	block_table = nil
+	block_table_reader.Reset(nil)
+	block_table_reader = nil
 
 	return
 }
@@ -252,8 +263,7 @@ func (c *mpq_chunker) detect_bet_table() (err error) {
 		return
 	}
 	// decrypt BET table
-	decrypt_key := crypto.HashString("(block table)", crypto.HashEncryptKey)
-	crypto.Decrypt(decrypt_key, bet_table_data[info.ExtTableHeaderSize:])
+	crypto.Decrypt(block_table_decryption_key, bet_table_data[info.ExtTableHeaderSize:])
 	var ext_table_header info.ExtTableHeader
 	if err = info.ReadExtTableHeader(bytes.NewReader(bet_table_data[:info.ExtTableHeaderSize]), &ext_table_header); err != nil {
 		return
@@ -335,31 +345,6 @@ func (c *mpq_chunker) detect_bet_table() (err error) {
 	return
 }
 
-// insert fake entries to split up large sections
-func (c *mpq_chunker) limit_block_sizes() (err error) {
-	// sections := c.sections
-	// for i := 0; i < len(sections); i++ {
-	// 	section := sections[i]
-	// 	if section.Type == mpq_section_file_block {
-	// 		offset := section.Offset
-	// 		end := c.file_size
-	// 		if i < len(sections)-1 {
-	// 			end = sections[i+1].Offset
-	// 		}
-
-	// 		length := end - offset
-
-	// 		for length > max_chunk_size {
-	// 			offset += max_chunk_size
-	// 			c.insert_section(mpq_section_file_block, offset)
-	// 			length -= max_chunk_size
-	// 		}
-	// 	}
-	// }
-
-	return
-}
-
 // scans the file, attempting to identify sections that are largely the same as in previous MPQ versions
 // detecting these appropriately leads to efficient data deduplication between MPQs.
 func (c *mpq_chunker) detect_sections() (err error) {
@@ -392,8 +377,18 @@ func (c *mpq_chunker) detect_sections() (err error) {
 		return
 	}
 
-	if err = c.limit_block_sizes(); err != nil {
-		return
+	for i := 0; i < len(c.sections); i++ {
+		var start = c.sections[i].Offset
+		var end int64
+		if i+1 == len(c.sections) {
+			end = c.file_size
+		} else {
+			end = c.sections[i+1].Offset
+		}
+		length := end - start
+		if length > c.max_section {
+			c.max_section = length
+		}
 	}
 
 	return
@@ -409,8 +404,6 @@ func (c *mpq_chunker) Section() string {
 	return mpq_section_type_names[section.Type]
 }
 
-var temp_buffer []byte
-
 func (c *mpq_chunker) Next() (start int64, data []byte, err error) {
 	if c.index >= len(c.sections) {
 		err = io.EOF
@@ -418,6 +411,17 @@ func (c *mpq_chunker) Next() (start int64, data []byte, err error) {
 	}
 
 	section := &c.sections[c.index]
+
+	if c.chunk_reader != nil {
+		start, data, err = c.chunk_reader.Next()
+		start += section.Offset
+		if err != nil && errors.Is(err, io.EOF) {
+			c.chunk_reader = nil
+			c.index++
+			return c.Next()
+		}
+		return
+	}
 
 	start = section.Offset
 
@@ -430,12 +434,20 @@ func (c *mpq_chunker) Next() (start int64, data []byte, err error) {
 
 	length := end - start
 
-	if length <= int64(len(temp_buffer)) {
-		data = temp_buffer[:length]
-	} else {
-		temp_buffer = append(temp_buffer, make([]byte, length-int64(len(temp_buffer)))...)
-		data = temp_buffer
+	// CDC-chunk the large file
+	if length >= min_chunk_size {
+		c.chunk_reader = new_generic_chunker(io.LimitReader(c.file_reader, length))
+		start, data, err = c.chunk_reader.Next()
+		if err != nil && errors.Is(err, io.EOF) {
+			c.chunk_reader = nil
+			c.index++
+			return c.Next()
+		}
+		start += section.Offset
+		return
 	}
+
+	data = make([]byte, length)
 
 	_, err = io.ReadFull(c.file_reader, data)
 	c.index++
@@ -460,7 +472,7 @@ func new_mpq_chunker(file io.ReadSeeker) (c *mpq_chunker, err error) {
 		return
 	}
 
-	c.file_reader = bufio.NewReaderSize(c.file, good_buffer_size())
+	c.file_reader = bufio.NewReaderSize(c.file, min(int(c.max_section)*2, 256000000))
 
 	return
 }
