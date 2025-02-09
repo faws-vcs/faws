@@ -2,7 +2,6 @@ package add
 
 import (
 	"os"
-	"strconv"
 
 	"github.com/faws-vcs/faws/faws/app"
 	"github.com/faws-vcs/faws/faws/app/repository"
@@ -49,12 +48,11 @@ func run_add_cmd(cmd *cobra.Command, args []string) {
 	}
 
 	if mode != "" {
-		m, err := strconv.ParseUint(mode, 10, 8)
+		params.SetMode = true
+		params.Mode, err = revision.ParseFileMode(mode)
 		if err != nil {
 			app.Fatal(err)
 		}
-		params.SetMode = true
-		params.Mode = revision.FileMode(m)
 	}
 
 	repository.AddFile(&params)
