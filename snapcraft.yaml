@@ -1,0 +1,27 @@
+name: faws
+summary: an experimental version control system for hosting large collections of files
+description: |
+  A distributed version control system loosely inspired by Git.
+  Faws splits up your large files into many smaller chunks, which can be deduplicated when they're encountered later on.
+  This is useful when you want to backup many directories that only differ slightly in content.
+
+adopt-info: faws
+grade: stable
+base: core24
+
+confinement: classic
+
+parts:
+  faws:
+    plugin: go
+    build-snaps: [go/latest/stable]
+    source: https://github.com/faws-vcs/faws
+    source-type: git
+    override-pull: |
+      snapcraftctl pull
+      snapcraftctl set-version \
+      "$(git describe --long --tags --always --match=v*.*.* | sed 's/v//')"
+
+apps:
+  faws:
+    command: 'bin/faws'
