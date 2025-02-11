@@ -244,6 +244,7 @@ func (repo *Repository) cache_file(o *cache_options, path, origin string) (err e
 	if err != nil {
 		return
 	}
+	defer origin_file.Close()
 
 	repo.notify(EvCacheFile, path, origin)
 
