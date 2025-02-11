@@ -12,12 +12,8 @@ base: core24
 platforms:
   amd64:
     build-on: [amd64]
-  arm64:
-    build-on: [amd64]
-  armhf:
-    build-on: [amd64]
-  s390x:
-    build-on: [amd64]
+    build-for: [amd64]
+
 
 confinement: classic
 
