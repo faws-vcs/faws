@@ -9,13 +9,15 @@ adopt-info: faws
 grade: stable
 base: core24
 
-architectures:
-  - build-on: s390x
-  - build-on: ppc64el
-  - build-on: arm64
-  - build-on: armhf
-  - build-on: amd64
-  - build-on: i386
+platforms:
+  amd64:
+    build-on: [amd64]
+  arm64:
+    build-on: [amd64]
+  armhf:
+    build-on: [amd64]
+  s390x:
+    build-on: [amd64]
 
 confinement: classic
 
