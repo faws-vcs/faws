@@ -21,6 +21,7 @@ import (
 	_ "github.com/faws-vcs/faws/faws/cmd/ls-tree"
 	_ "github.com/faws-vcs/faws/faws/cmd/mass-revise"
 	_ "github.com/faws-vcs/faws/faws/cmd/pull"
+	_ "github.com/faws-vcs/faws/faws/cmd/reset"
 	_ "github.com/faws-vcs/faws/faws/cmd/rm"
 	_ "github.com/faws-vcs/faws/faws/cmd/shadow"
 	_ "github.com/faws-vcs/faws/faws/cmd/status"

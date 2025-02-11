@@ -18,8 +18,9 @@ import (
 )
 
 type cache_index struct {
-	cache_objects map[cas.ContentID]uint32
-	entries       []cache.IndexEntry
+	cache_objects   map[cas.ContentID]uint32
+	entries         []cache.IndexEntry
+	lazy_signatures []cache.LazySignature
 }
 
 func (repo *Repository) CacheIndex() (cache_index *cache.Index) {
@@ -34,6 +35,7 @@ func (repo *Repository) CacheIndex() (cache_index *cache.Index) {
 		return cache_index.CacheObjects[i].Hash.Less(cache_index.CacheObjects[j].Hash)
 	})
 	cache_index.Entries = repo.index.entries
+	cache_index.LazySignatures = repo.index.lazy_signatures
 	return
 }
 
@@ -41,7 +43,7 @@ func (repo *Repository) CachedFiles() []cache.IndexEntry {
 	return repo.index.entries
 }
 
-func (repo *Repository) ResetCache() (err error) {
+func (repo *Repository) UncacheAll() (err error) {
 	if len(repo.index.cache_objects) == 0 {
 		repo.index.entries = nil
 		return
@@ -58,6 +60,16 @@ func (repo *Repository) ResetCache() (err error) {
 			return
 		}
 	}
+	return
+}
+
+func (repo *Repository) ResetCache() (err error) {
+	err = repo.UncacheAll()
+	if err != nil {
+		return
+	}
+
+	repo.index.lazy_signatures = nil
 	return
 }
 
@@ -95,6 +107,7 @@ func (repo *Repository) dereference_index_cache_object(object_hash cas.ContentID
 	}
 	references--
 	if references == 0 {
+		repo.remove_lazy_file(object_hash)
 		repo.objects.Remove(object_hash)
 		delete(repo.index.cache_objects, object_hash)
 		return
@@ -102,19 +115,61 @@ func (repo *Repository) dereference_index_cache_object(object_hash cas.ContentID
 	repo.index.cache_objects[object_hash] = references
 }
 
-// 	return
+func (repo *Repository) find_lazy_file(signature multipart.LazySignature) (file_hash cas.ContentID, err error) {
+	i := sort.Search(len(repo.index.lazy_signatures), func(i int) bool {
+		return !repo.index.lazy_signatures[i].Signature.Less(signature)
+	})
+	if i < len(repo.index.lazy_signatures) && repo.index.lazy_signatures[i].Signature == signature {
+		file_hash = repo.index.lazy_signatures[i].File
+		return
+	}
+	err = ErrCacheEntryNotFound
+	return
+}
+
+func (repo *Repository) insert_lazy_file(signature multipart.LazySignature, file_hash cas.ContentID) {
+	i := sort.Search(len(repo.index.lazy_signatures), func(i int) bool {
+		return !repo.index.lazy_signatures[i].Signature.Less(signature)
+	})
+	if i < len(repo.index.lazy_signatures) && repo.index.lazy_signatures[i].Signature == signature {
+		repo.index.lazy_signatures[i].File = file_hash
+	} else {
+		repo.index.lazy_signatures = slices.Insert(repo.index.lazy_signatures, i, cache.LazySignature{
+			Signature: signature,
+			File:      file_hash,
+		})
+	}
+}
+
+func (repo *Repository) remove_lazy_file(file_hash cas.ContentID) (err error) {
+	for i, signature := range repo.index.lazy_signatures {
+		if signature.File == file_hash {
+			repo.index.lazy_signatures = slices.Delete(repo.index.lazy_signatures, i, i+1)
+			break
+		}
+	}
+	err = ErrCacheEntryNotFound
+	return
+}
 
 type cache_options struct {
 	set_mode bool
 	mode     revision.FileMode
+	lazy     bool
 }
 
 type CacheOption func(*cache_options)
 
-func CacheWithMode(mode revision.FileMode) CacheOption {
+func WithFileMode(mode revision.FileMode) CacheOption {
 	return func(c *cache_options) {
 		c.set_mode = true
 		c.mode = mode
+	}
+}
+
+func WithLazy(lazy bool) CacheOption {
+	return func(c *cache_options) {
+		c.lazy = lazy
 	}
 }
 
@@ -197,6 +252,54 @@ func (repo *Repository) cache_file(o *cache_options, path, origin string) (err e
 		return
 	}
 
+	// hold on to this
+	var (
+		lazy_signature     multipart.LazySignature
+		got_lazy_signature bool
+	)
+
+	// sometimes you can get away with being a little bit lazy
+	if o.lazy {
+		lazy_chunker, can_be_lazy := chunker.(multipart.LazyChunker)
+		if can_be_lazy {
+			var (
+				lazy_file_hash cas.ContentID
+			)
+			lazy_signature, err = lazy_chunker.LazySignature()
+			if err != nil {
+				return
+			}
+			got_lazy_signature = true
+
+			lazy_file_hash, err = repo.find_lazy_file(lazy_signature)
+			if err == nil {
+				repo.notify(EvCacheUsedLazySignature, entry.Path, lazy_file_hash)
+				// found lazy file id!
+				// increase all the references to its contents
+				if repo.index_object_is_cache(lazy_file_hash) {
+					repo.reference_index_cache_object(lazy_file_hash)
+				}
+				var lazy_file []byte
+				_, lazy_file, err = repo.objects.Load(lazy_file_hash)
+				if err != nil {
+					return
+				}
+				var lazy_file_part_hash cas.ContentID
+				for len(lazy_file) > 0 {
+					copy(lazy_file_part_hash[:], lazy_file[:cas.ContentIDSize])
+					if repo.index_object_is_cache(lazy_file_part_hash) {
+						repo.reference_index_cache_object(lazy_file_part_hash)
+					}
+					lazy_file = lazy_file[cas.ContentIDSize:]
+				}
+
+				entry.File = lazy_file_hash
+				err = repo.insert_cache_index_entry(entry)
+				return
+			}
+		}
+	}
+
 	var (
 		chunk    []byte
 		chunk_id cas.ContentID
@@ -210,6 +313,7 @@ func (repo *Repository) cache_file(o *cache_options, path, origin string) (err e
 			err = nil
 			break
 		} else if err != nil {
+			err = fmt.Errorf("faws/repo: cache_file: error reading chunker: %w", err)
 			return
 		}
 
@@ -240,6 +344,14 @@ func (repo *Repository) cache_file(o *cache_options, path, origin string) (err e
 	entry.File = file_id
 
 	err = repo.insert_cache_index_entry(entry)
+	if err != nil {
+		return
+	}
+
+	if got_lazy_signature {
+		repo.insert_lazy_file(lazy_signature, file_id)
+	}
+
 	return
 }
 
@@ -257,6 +369,7 @@ func (repo *Repository) Uncache(path string) (err error) {
 	i := repo.find_cache_index_entry(path)
 	if i < len(repo.index.entries) && repo.index.entries[i].Path == path {
 		entry := &repo.index.entries[i]
+
 		// if the file isn't part of the repository we should delete it
 		if repo.index_object_is_cache(entry.File) {
 			var (
@@ -308,6 +421,7 @@ func (repo *Repository) read_index() (err error) {
 		repo.index.cache_objects[cache_object.Hash] = cache_object.References
 	}
 	repo.index.entries = cache_index.Entries
+	repo.index.lazy_signatures = cache_index.LazySignatures
 	return
 }
 

@@ -1,11 +1,14 @@
 package repository
 
 import (
+	"fmt"
+
 	"github.com/faws-vcs/faws/faws/app"
 )
 
 type StatParams struct {
-	Directory string
+	Directory     string
+	ShowLazyFiles bool
 }
 
 func Stat(params *StatParams) {
@@ -22,10 +25,19 @@ func Stat(params *StatParams) {
 
 	index := Repo.CacheIndex()
 	if index != nil {
+		if params.ShowLazyFiles {
+			if len(index.LazySignatures) != 0 {
+				app.Header("lazy files:")
+				for _, lazy_signature := range index.LazySignatures {
+					app.Info(lazy_signature.Signature, lazy_signature.File)
+				}
+			}
+		}
+
 		if len(index.Entries) == 0 {
-			app.Info("Nothing to commit yet")
+			app.Info("nothing to commit yet")
 		} else {
-			app.Info(len(index.Entries), "files to be committed:")
+			app.Header(fmt.Sprintf("%d files to be committed:", len(index.Entries)))
 			for _, index_entry := range index.Entries {
 				app.Info(index_entry.Mode, index_entry.File, index_entry.Path)
 			}

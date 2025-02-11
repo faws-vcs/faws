@@ -21,6 +21,7 @@ var add_cmd = cobra.Command{
 func init() {
 	flag := add_cmd.Flags()
 	flag.StringP("mode", "m", "", "file mode override")
+	flag.BoolP("lazy", "l", false, "refrain from chunking large files which share essential details with previously added files. Use this carefully, as it can introduce inconsistent information into your repository")
 	root.RootCmd.AddCommand(&add_cmd)
 }
 
@@ -30,7 +31,14 @@ func run_add_cmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	mode, err := cmd.Flags().GetString("mode")
+	flag := cmd.Flags()
+
+	mode, err := flag.GetString("mode")
+	if err != nil {
+		app.Fatal(err)
+	}
+
+	lazy, err := flag.GetBool("lazy")
 	if err != nil {
 		app.Fatal(err)
 	}
@@ -45,6 +53,7 @@ func run_add_cmd(cmd *cobra.Command, args []string) {
 		Directory: working_directory,
 		Path:      args[0],
 		Origin:    args[1],
+		AddLazy:   lazy,
 	}
 
 	if mode != "" {

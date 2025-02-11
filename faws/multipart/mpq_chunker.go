@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/md5"
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -42,7 +43,11 @@ var (
 		"block table",
 	}
 
+	hash_table_decryption_key  = crypto.HashString("(hash table)", crypto.HashEncryptKey)
 	block_table_decryption_key = crypto.HashString("(block table)", crypto.HashEncryptKey)
+
+	attributes_name_hash_1 = crypto.HashString("(attributes)", crypto.HashNameA)
+	attributes_name_hash_2 = crypto.HashString("(attributes)", crypto.HashNameB)
 )
 
 func (t mpq_section_type) String() string {
@@ -64,17 +69,24 @@ type mpq_chunker struct {
 	archive_header   info.Header
 	archive_position int64
 	// the file
-	file_size    int64
-	file         io.ReadSeeker
-	file_reader  *bufio.Reader
+	file_size   int64
+	file        io.ReadSeeker
+	file_reader io.Reader
+	// file_reader  *bufio.Reader
 	chunk_reader Chunker
 	// sorted by offset
-	sections []mpq_section
-	index    int
+	sections         []mpq_section
+	index            int
+	hash_table_data  []byte
+	block_table_data []byte
 	// largest used offset
 	max_offset int64
 	// largest section size
 	max_section int64
+	// the index of the (attributes) file in the block table (-1 if not found)
+	attributes_block_entry int64
+	// the offset of the (attributes) file block (-1 if not found)
+	attributes_block_offset int64
 }
 
 func (c *mpq_chunker) insert_section(t mpq_section_type, offset int64) (err error) {
@@ -142,13 +154,50 @@ func (c *mpq_chunker) detect_header() (err error) {
 }
 
 func (c *mpq_chunker) detect_hash_table() (err error) {
-	if info.HashTablePos(&c.archive_header) == 0 {
+	rel_hash_table_position := info.HashTablePos(&c.archive_header)
+
+	if rel_hash_table_position == 0 {
 		// no hash table
 		return
 	}
 
-	// No need to process the hash table beyond this
-	hash_table_position := int64(uint64(c.archive_position) + info.HashTablePos(&c.archive_header))
+	hash_table_position := int64(uint64(c.archive_position) + rel_hash_table_position)
+
+	_, err = c.file.Seek(hash_table_position, io.SeekStart)
+	if err != nil {
+		return
+	}
+	hash_table_length := c.archive_header.HashTableSize
+	c.hash_table_data = make([]byte, hash_table_length*info.HashTableEntrySize)
+	if _, err = io.ReadFull(c.file, c.hash_table_data); err != nil {
+		return
+	}
+	hash_table_reader := bytes.NewReader(c.hash_table_data)
+
+	// start decrypting
+	cipher := crypto.NewBlock(hash_table_decryption_key)
+
+	// look for attributes
+	var entry_reader bytes.Reader
+	var entry_data [info.HashTableEntrySize]byte
+	var entry info.HashTableEntry
+	for range hash_table_length {
+		if _, err = io.ReadFull(hash_table_reader, entry_data[:]); err != nil {
+			return
+		}
+		for n := 0; n < info.HashTableEntrySize; n += 4 {
+			cipher.Decrypt(entry_data[n:], entry_data[n:])
+		}
+		entry_reader.Reset(entry_data[:])
+		if err = info.ReadHashTableEntry(&entry_reader, &entry); err != nil {
+			return
+		}
+		if entry.Name1 == attributes_name_hash_1 && entry.Name2 == attributes_name_hash_2 {
+			c.attributes_block_entry = int64(entry.BlockIndex)
+			break
+		}
+	}
+
 	err = c.insert_section(mpq_section_hash_table, hash_table_position)
 	return
 }
@@ -176,13 +225,13 @@ func (c *mpq_chunker) detect_block_table() (err error) {
 
 	block_table_position := int64(uint64(c.archive_position) + info.BlockTablePos(&c.archive_header))
 	// we want to read the whole block table and decrypt it
-	block_table_data := make([]byte, c.archive_header.BlockTableSize*info.BlockTableEntrySize)
+	c.block_table_data = make([]byte, c.archive_header.BlockTableSize*info.BlockTableEntrySize)
 
 	if _, err = c.file.Seek(block_table_position, io.SeekStart); err != nil {
 		return
 	}
 
-	if _, err = io.ReadFull(c.file, block_table_data); err != nil {
+	if _, err = io.ReadFull(c.file, c.block_table_data); err != nil {
 		return
 	}
 
@@ -190,18 +239,28 @@ func (c *mpq_chunker) detect_block_table() (err error) {
 		return
 	}
 
-	crypto.Decrypt(block_table_decryption_key, block_table_data)
-	block_table := make([]info.BlockTableEntry, c.archive_header.BlockTableSize)
-	block_table_reader := bytes.NewReader(block_table_data)
+	// crypto.Decrypt(block_table_decryption_key, c.block_table_data)
+	block_table_reader := bytes.NewReader(c.block_table_data)
 
-	for i := range block_table {
-		if err = info.ReadBlockTableEntry(block_table_reader, &block_table[i]); err != nil {
+	cipher := crypto.NewBlock(block_table_decryption_key)
+
+	var entry_reader bytes.Reader
+	var entry_data [info.BlockTableEntrySize]byte
+	var entry info.BlockTableEntry
+
+	for i := int64(0); i < int64(c.archive_header.BlockTableSize); i++ {
+		if _, err = io.ReadFull(block_table_reader, entry_data[:]); err != nil {
 			return
 		}
-	}
+		for n := 0; n < info.BlockTableEntrySize; n += 4 {
+			cipher.Decrypt(entry_data[n:], entry_data[n:])
+		}
+		entry_reader.Reset(entry_data[:])
+		if err = info.ReadBlockTableEntry(&entry_reader, &entry); err != nil {
+			return
+		}
 
-	for i, block_table_entry := range block_table {
-		block_position := uint64(block_table_entry.Position)
+		block_position := uint64(entry.Position)
 		if len(hi_block_table) != 0 {
 			block_position |= (uint64(hi_block_table[i]) << 32)
 		}
@@ -212,15 +271,16 @@ func (c *mpq_chunker) detect_block_table() (err error) {
 
 		real_block_position := c.archive_position + int64(block_position)
 
+		if i == c.attributes_block_entry {
+			// if we can detect the attributes, this greatly improves our chances of
+			// providing a unique lazy signature
+			c.attributes_block_offset = real_block_position
+		}
+
 		if err = c.insert_section(mpq_section_file_block, real_block_position); err != nil {
 			return
 		}
 	}
-
-	hi_block_table = nil
-	block_table = nil
-	block_table_reader.Reset(nil)
-	block_table_reader = nil
 
 	return
 }
@@ -378,12 +438,13 @@ func (c *mpq_chunker) detect_sections() (err error) {
 	}
 
 	for i := 0; i < len(c.sections); i++ {
-		var start = c.sections[i].Offset
-		var end int64
-		if i+1 == len(c.sections) {
-			end = c.file_size
-		} else {
-			end = c.sections[i+1].Offset
+		var (
+			start int64
+			end   int64
+		)
+		start, end, err = c.slice_section(i)
+		if err != nil {
+			panic(err)
 		}
 		length := end - start
 		if length > c.max_section {
@@ -404,15 +465,53 @@ func (c *mpq_chunker) Section() string {
 	return mpq_section_type_names[section.Type]
 }
 
+func (c *mpq_chunker) slice_section_bytes(index int) (data []byte, err error) {
+	var (
+		i, j int64
+	)
+	i, j, err = c.slice_section(index)
+	if err != nil {
+		err = fmt.Errorf("faws/multipart: mpq_chunker.slice_section_bytes(%d): %w", index, err)
+		return
+	}
+	data = make([]byte, j-i)
+	if _, err = c.file.Seek(i, io.SeekStart); err != nil {
+		err = fmt.Errorf("faws/multipart: mpq_chunker.slice_section_bytes(%d): Seek(): %w", index, err)
+		return
+	}
+	_, err = io.ReadFull(c.file, data)
+	if err != nil {
+		err = fmt.Errorf("faws/multipart: mpq_chunker.slice_section_bytes(%d): io.ReadFull: %w", index, err)
+	}
+	return
+}
+
+func (c *mpq_chunker) slice_section(index int) (i, j int64, err error) {
+	if index >= len(c.sections) {
+		err = fmt.Errorf("faws/multipart: mpq_chunker.slice_section_bytes(%d): out of bounds", index)
+		return
+	}
+
+	section := &c.sections[index]
+	i = section.Offset
+
+	if index+1 == len(c.sections) {
+		j = c.file_size
+	} else {
+		j = c.sections[index+1].Offset
+	}
+
+	return
+}
+
 func (c *mpq_chunker) Next() (start int64, data []byte, err error) {
 	if c.index >= len(c.sections) {
 		err = io.EOF
 		return
 	}
 
-	section := &c.sections[c.index]
-
 	if c.chunk_reader != nil {
+		section := &c.sections[c.index]
 		start, data, err = c.chunk_reader.Next()
 		start += section.Offset
 		if err != nil && errors.Is(err, io.EOF) {
@@ -423,19 +522,17 @@ func (c *mpq_chunker) Next() (start int64, data []byte, err error) {
 		return
 	}
 
-	start = section.Offset
-
 	var end int64
-	if c.index+1 == len(c.sections) {
-		end = c.file_size
-	} else {
-		end = c.sections[c.index+1].Offset
+	start, end, err = c.slice_section(c.index)
+	if err != nil {
+		return
 	}
 
 	length := end - start
 
 	// CDC-chunk the large file
 	if length >= min_chunk_size {
+		section := &c.sections[c.index]
 		c.chunk_reader = new_generic_chunker(io.LimitReader(c.file_reader, length))
 		start, data, err = c.chunk_reader.Next()
 		if err != nil && errors.Is(err, io.EOF) {
@@ -447,21 +544,84 @@ func (c *mpq_chunker) Next() (start int64, data []byte, err error) {
 		return
 	}
 
+	if end > c.file_size {
+		err = fmt.Errorf("read past file end")
+		return
+	}
+
 	data = make([]byte, length)
 
-	_, err = io.ReadFull(c.file_reader, data)
+	_, err = io.ReadFull(c.file_reader, data[:])
 	c.index++
 	return
 }
 
-func new_mpq_chunker(file io.ReadSeeker) (c *mpq_chunker, err error) {
-	c = new(mpq_chunker)
-	c.file = file
-	c.file_size, err = c.file.Seek(0, io.SeekEnd)
+func (c *mpq_chunker) LazySignature() (s LazySignature, err error) {
+	var offset int64
+	offset, err = c.file.Seek(0, io.SeekCurrent)
 	if err != nil {
-		err = fmt.Errorf("error seeking end: %w", err)
 		return
 	}
+
+	h := sha256.New()
+	var size_bytes [8]byte
+	binary.LittleEndian.PutUint64(size_bytes[:], uint64(c.file_size))
+	// encode the size of the file
+	h.Write(size_bytes[:])
+
+	for i := 0; i < len(c.sections); i++ {
+		section := &c.sections[i]
+		switch section.Type {
+		case mpq_section_archive_header:
+			var header_bytes []byte
+			header_bytes, err = c.slice_section_bytes(i)
+			if err != nil {
+				return
+			}
+			h.Write(header_bytes)
+		case mpq_section_hash_table:
+			h.Write(c.hash_table_data[:])
+		case mpq_section_block_table:
+			h.Write(c.block_table_data[:])
+		case mpq_section_het_table:
+			var het_table_bytes []byte
+			het_table_bytes, err = c.slice_section_bytes(i)
+			if err != nil {
+				return
+			}
+			h.Write(het_table_bytes[:])
+		case mpq_section_bet_table:
+			var bet_table_bytes []byte
+			bet_table_bytes, err = c.slice_section_bytes(i)
+			if err != nil {
+				return
+			}
+			h.Write(bet_table_bytes[:])
+		case mpq_section_file_block:
+			if section.Offset == c.attributes_block_offset {
+				var attributes_file_block_bytes []byte
+				attributes_file_block_bytes, err = c.slice_section_bytes(i)
+				if err != nil {
+					return
+				}
+				h.Write(attributes_file_block_bytes[:])
+			}
+		}
+	}
+
+	copy(s[:], h.Sum(nil))
+	_, err = c.file.Seek(offset, io.SeekStart)
+	return
+}
+
+func new_mpq_chunker(file io.ReadSeeker, size int64) (c *mpq_chunker, err error) {
+	c = new(mpq_chunker)
+
+	c.attributes_block_entry = -1
+	c.attributes_block_offset = -1
+
+	c.file = file
+	c.file_size = size
 
 	if err = c.detect_sections(); err != nil {
 		err = fmt.Errorf("error detection sections: %w", err)

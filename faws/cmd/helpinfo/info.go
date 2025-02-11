@@ -19,7 +19,8 @@ var Text = map[string]string{
 
 	"init":        "create an empty repository in the current directory",
 	"add":         "add a file or directory to the index",
-	"rm":          "remove a file from the index",
+	"rm":          "remove a cached file from the index",
+	"reset":       "remove all cached files and signatures from the index",
 	"chmod":       "set the permission flag of a file in the index",
 	"status":      "list files in the index yet to be committed",
 	"write-tree":  "write cached files to a tree object",

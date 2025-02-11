@@ -18,6 +18,8 @@ var status_cmd = cobra.Command{
 }
 
 func init() {
+	flag := status_cmd.Flags()
+	flag.BoolP("show-lazy", "l", false, "show signatures of lazy files in the index")
 	root.RootCmd.AddCommand(&status_cmd)
 }
 
@@ -29,9 +31,15 @@ func run_status_cmd(cmd *cobra.Command, args []string) {
 		return
 	}
 
+	flag := cmd.Flags()
 	// show the current repository status
 	var params = repository.StatParams{
 		Directory: working_directory,
 	}
+	params.ShowLazyFiles, err = flag.GetBool("show-lazy")
+	if err != nil {
+		return
+	}
+
 	repository.Stat(&params)
 }

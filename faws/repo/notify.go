@@ -5,6 +5,7 @@ type Ev uint8
 const (
 	EvCacheFile = iota
 	EvCacheFilePart
+	EvCacheUsedLazySignature
 	EvPullTag
 	// ( object cas.ContentID, size int )
 	EvPullObject

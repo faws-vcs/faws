@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/faws-vcs/faws/faws/multipart"
 	"github.com/faws-vcs/faws/faws/repo/cas"
 	"github.com/faws-vcs/faws/faws/repo/revision"
 )
@@ -28,11 +29,22 @@ type CacheObject struct {
 	References uint32
 }
 
+type LazySignature struct {
+	// The lazy signature of the file
+	// These can't repeat, they control how the list is sorted.
+	Signature multipart.LazySignature
+	// The previously chunked and catalogued file object
+	// If file is ever uncached, then the lazy signature MUST also be deleted
+	File cas.ContentID
+}
+
 // Index lists pending changes
 // to be written by the next commit
 type Index struct {
 	CacheObjects []CacheObject
 	Entries      []IndexEntry
+	// Completely optional: use lazy signatures to accelerate caching large collections of archive files
+	LazySignatures []LazySignature
 }
 
 func MarshalIndex(index *Index) (data []byte, err error) {
@@ -64,6 +76,14 @@ func MarshalIndex(index *Index) (data []byte, err error) {
 		data = append(data, entry.File[:]...)
 
 		data = append(data, byte(entry.Mode))
+	}
+
+	var lazy_signatures_count [4]byte
+	binary.LittleEndian.PutUint32(lazy_signatures_count[:], uint32(len(index.LazySignatures)))
+	data = append(data, lazy_signatures_count[:]...)
+	for _, lazy_signature := range index.LazySignatures {
+		data = append(data, lazy_signature.Signature[:]...)
+		data = append(data, lazy_signature.File[:]...)
 	}
 
 	return
@@ -101,6 +121,17 @@ func UnmarshalIndex(data []byte, index *Index) (err error) {
 
 		entry.Mode = revision.FileMode(field[0])
 		field = field[1:]
+	}
+
+	lazy_signatures_count := binary.LittleEndian.Uint32(field[:4])
+	field = field[4:]
+	index.LazySignatures = make([]LazySignature, lazy_signatures_count)
+	for i := range index.LazySignatures {
+		ls := &index.LazySignatures[i]
+		copy(ls.Signature[:], field[:multipart.LazySignatureSize])
+		field = field[multipart.LazySignatureSize:]
+		copy(ls.File[:], field[:cas.ContentIDSize])
+		field = field[cas.ContentIDSize:]
 	}
 
 	return

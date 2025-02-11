@@ -16,6 +16,8 @@ type AddFileParams struct {
 	// If true, set file mode to Mode
 	SetMode bool
 	Mode    revision.FileMode
+	//
+	AddLazy bool
 }
 
 func AddFile(params *AddFileParams) {
@@ -30,7 +32,10 @@ func AddFile(params *AddFileParams) {
 
 	var o []repo.CacheOption
 	if params.SetMode {
-		o = append(o, repo.CacheWithMode(params.Mode))
+		o = append(o, repo.WithFileMode(params.Mode))
+	}
+	if params.AddLazy {
+		o = append(o, repo.WithLazy(true))
 	}
 
 	if err := Repo.Cache(params.Path, params.Origin, o...); err != nil {

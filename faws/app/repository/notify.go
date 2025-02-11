@@ -37,6 +37,8 @@ func notify(ev repo.Ev, args ...any) {
 	switch ev {
 	case repo.EvCacheFile:
 		app.Info("caching", args[0], args[1])
+	case repo.EvCacheUsedLazySignature:
+		app.Info("using precached file (--lazy)", args[0], args[1])
 	case repo.EvPullTag:
 	case repo.EvPullObject:
 		var (
