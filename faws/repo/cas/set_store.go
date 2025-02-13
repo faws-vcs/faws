@@ -1,6 +1,7 @@
 package cas
 
 import (
+	"bytes"
 	"os"
 
 	"github.com/faws-vcs/faws/faws/fs"
@@ -21,7 +22,21 @@ func (set *Set) Store(prefix Prefix, data []byte) (new bool, id ContentID, err e
 	fi, stat_err := os.Stat(path)
 	if stat_err == nil {
 		if fi.Size() == int64(len(data))+4 {
-			return
+			var (
+				current_prefix Prefix
+				current_data   []byte
+			)
+			current_data, err = os.ReadFile(path)
+			if err != nil {
+				return
+			}
+			copy(current_prefix[:], current_data[:4])
+			current_data = current_data[4:]
+			if current_prefix == prefix {
+				if bytes.Equal(current_data, data) {
+					return
+				}
+			}
 		}
 	}
 
