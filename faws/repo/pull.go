@@ -87,7 +87,7 @@ func (repo *Repository) fetch_object(fs remote.Fs, object_hash cas.ContentID) (p
 		if received_object_hash != object_hash {
 			// if the hash isn't correct just delete it
 			repo.objects.Remove(received_object_hash)
-			err = ErrBadObject
+			err = fmt.Errorf("%w: remote object %s does not match its hash", ErrBadObject, object_hash)
 			return
 		}
 
@@ -109,7 +109,7 @@ func (repo *Repository) pull_remote_file(pq *pull_queue, fs remote.Fs, file_hash
 		return
 	}
 	if prefix != cas.File {
-		err = ErrBadObject
+		err = fmt.Errorf("%w: remote file object %s has invalid prefix %s", ErrBadObject, file_hash, prefix)
 		return
 	}
 
@@ -138,7 +138,7 @@ func (repo *Repository) pull_remote_tree(pq *pull_queue, fs remote.Fs, tree_hash
 		return
 	}
 	if prefix != cas.Tree {
-		err = ErrBadObject
+		err = fmt.Errorf("%w: remote tree object %s has invalid prefix %s", ErrBadObject, tree_hash, prefix)
 		return
 	}
 
@@ -157,7 +157,7 @@ func (repo *Repository) pull_remote_tree(pq *pull_queue, fs remote.Fs, tree_hash
 				return
 			}
 		default:
-			err = ErrBadObject
+			err = fmt.Errorf("%w: remote tree object %s entry %s contains invalid prefix %s", ErrBadObject, tree_hash, entry.Content, prefix)
 			return
 		}
 	}
