@@ -211,10 +211,9 @@ func (repo *Repository) pull_remote_commits(pq *pull_queue, fs remote.Fs, commit
 }
 
 // check if the
-func (repo *Repository) pull_remote_tag(pq *pull_queue, fs remote.Fs, tag string, force bool) (err error) {
+func (repo *Repository) pull_remote_tag(pq *pull_queue, fs remote.Fs, tag string, force bool) (remote_commit_hash cas.ContentID, err error) {
 	var (
-		file               io.ReadCloser
-		remote_commit_hash cas.ContentID
+		file io.ReadCloser
 	)
 	file, err = fs.Pull(fmt.Sprintf("tags/%s", tag))
 	if err != nil {
@@ -324,7 +323,7 @@ func (repo *Repository) Pull(fs remote.Fs, force bool) (err error) {
 	}
 
 	for _, tag := range tags {
-		if err = repo.pull_remote_tag(pq, fs, tag, force); err != nil {
+		if _, err = repo.pull_remote_tag(pq, fs, tag, force); err != nil {
 			return
 		}
 	}
@@ -336,7 +335,7 @@ func (repo *Repository) Pull(fs remote.Fs, force bool) (err error) {
 
 func (repo *Repository) deabbreviate_remote_hash(fs remote.Fs, ref string) (object_hash cas.ContentID, err error) {
 	if !validate.Hex(ref) {
-		err = ErrBadRef
+		err = fmt.Errorf("%w: ref abbreviation must be hexadecimal", ErrBadRef)
 		return
 	}
 
@@ -347,7 +346,7 @@ func (repo *Repository) deabbreviate_remote_hash(fs remote.Fs, ref string) (obje
 	}
 
 	if len(ref) < 5 {
-		err = ErrBadRef
+		err = fmt.Errorf("%w: ref abbreviation can't be less than 5 characters", ErrBadRef)
 		return
 	}
 
@@ -370,7 +369,7 @@ func (repo *Repository) deabbreviate_remote_hash(fs remote.Fs, ref string) (obje
 		}
 	}
 
-	err = ErrBadRef
+	err = fmt.Errorf("%w: remote hash not found", ErrBadRef)
 	return
 }
 
@@ -384,9 +383,13 @@ func (repo *Repository) Shadow(fs remote.Fs, ref string, force bool) (err error)
 		return
 	}
 
+	var object_hash cas.ContentID
+	var found_tag bool
+
 	for _, tag := range tags {
 		if tag == ref {
-			err = repo.pull_remote_tag(pq, fs, ref, force)
+			found_tag = true
+			object_hash, err = repo.pull_remote_tag(pq, fs, ref, force)
 			if err != nil {
 				return
 			}
@@ -394,14 +397,16 @@ func (repo *Repository) Shadow(fs remote.Fs, ref string, force bool) (err error)
 		}
 	}
 
-	var (
-		object_hash cas.ContentID
-		prefix      cas.Prefix
-	)
-	object_hash, err = repo.deabbreviate_remote_hash(fs, ref)
-	if err != nil {
-		return
+	if !found_tag {
+		object_hash, err = repo.deabbreviate_remote_hash(fs, ref)
+		if err != nil {
+			return
+		}
 	}
+
+	var (
+		prefix cas.Prefix
+	)
 
 	// find what kind of object this is, so its dependencies can be fetched
 	prefix, _, err = repo.fetch_object(fs, object_hash)
