@@ -1,5 +1,7 @@
 package cas
 
+import "encoding/hex"
+
 // A Prefix helps clarify the purpose of each object
 // for instance, you can discover the st
 type Prefix [4]byte
@@ -14,3 +16,17 @@ var (
 	// The entry is a commit object
 	Commit = Prefix{'E', 'D', 'I', 'T'}
 )
+
+func (p Prefix) String() string {
+	switch p {
+	case File:
+		return "file"
+	case Part:
+		return "filepart"
+	case Tree:
+		return "tree"
+	case Commit:
+		return "commit"
+	}
+	return "bad prefix(" + hex.EncodeToString(p[:]) + ")"
+}

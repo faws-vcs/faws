@@ -31,6 +31,7 @@ var Text = map[string]string{
 	"cat-file":    "provide contents or details of repository objects",
 	"ls-tag":      "list tags and their associated commit hashes",
 	"ls-tree":     "list the contents of a tree object",
+	"fsck":        "enumerate an object hierarchy (and optionally remove) corrupted objects",
 	"mass-revise": "correct big mistakes across all tags",
 }
 
@@ -72,6 +73,7 @@ var Categories = []CategoryEntry{
 			"log",
 			"cat-file",
 			"checkout",
+			"fsck",
 			"mass-revise",
 		},
 	},

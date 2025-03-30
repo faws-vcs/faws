@@ -11,6 +11,10 @@ const (
 	EvPullObject
 	// ( count int )
 	EvPullQueueCount
+	// ( prefix cas.Prefix, object cas.ContentID)
+	EvCorruptedObject
+	// ( prefix cas.Prefix, object cas.ContentID)
+	EvRemovedCorruptedObject
 )
 
 type NotifyFunc func(ev Ev, args ...any)

@@ -1,6 +1,7 @@
 package cas
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -18,13 +19,17 @@ func (set *Set) Load(id ContentID) (prefix Prefix, data []byte, err error) {
 		err = ErrObjectNotFound
 		return
 	}
+	if len(object) < 4 {
+		err = fmt.Errorf("%w: %s", ErrObjectCorrupted, id)
+		return
+	}
 	copy(prefix[:], object)
 	data = object[4:]
 
 	// ensure consistency
 	disk_id := hash_content(prefix, data)
 	if id != disk_id {
-		err = ErrBadChecksum
+		err = fmt.Errorf("%w: %s", ErrObjectCorrupted, id)
 		return
 	}
 

@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	ErrBadChecksum = errors.New("faws/cas: bad checksum")
+	ErrObjectCorrupted = errors.New("faws/cas: object content ID does not match content on disk")
 
 	ErrAbbreviationAmbiguous = fmt.Errorf("faws/repo/cas: abbreviation is ambiguous")
 	ErrAbbreviationTooShort  = fmt.Errorf("faws/repo/cas: abbreviation is too short to be expanded")

@@ -73,5 +73,9 @@ func notify(ev repo.Ev, args ...any) {
 		in_progress = true
 		objects_in_queue = args[0].(int)
 		guard.Unlock()
+	case repo.EvCorruptedObject:
+		app.Warning("corrupted object", args[0].(cas.Prefix), args[1].(cas.ContentID))
+	case repo.EvRemovedCorruptedObject:
+		app.Warning("removed corrupted object", args[0].(cas.Prefix), args[1].(cas.ContentID))
 	}
 }

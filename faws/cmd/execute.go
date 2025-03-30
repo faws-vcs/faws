@@ -15,6 +15,7 @@ import (
 	_ "github.com/faws-vcs/faws/faws/cmd/chmod"
 	_ "github.com/faws-vcs/faws/faws/cmd/commit"
 	_ "github.com/faws-vcs/faws/faws/cmd/commit-tree"
+	_ "github.com/faws-vcs/faws/faws/cmd/fsck"
 	_ "github.com/faws-vcs/faws/faws/cmd/init"
 	_ "github.com/faws-vcs/faws/faws/cmd/log"
 	_ "github.com/faws-vcs/faws/faws/cmd/ls-tag"
