@@ -1,6 +1,9 @@
 package cas
 
-import "os"
+import (
+	"fmt"
+	"os"
+)
 
 func (set *Set) Stat(id ContentID) (size int64, err error) {
 	var (
@@ -14,7 +17,7 @@ func (set *Set) Stat(id ContentID) (size int64, err error) {
 
 	fi, err = os.Stat(path)
 	if err != nil {
-		err = ErrObjectNotFound
+		err = fmt.Errorf("%w: %s", ErrObjectNotFound, id)
 		return
 	}
 	size = fi.Size()

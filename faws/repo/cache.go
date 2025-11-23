@@ -14,6 +14,7 @@ import (
 	"github.com/faws-vcs/faws/faws/multipart"
 	"github.com/faws-vcs/faws/faws/repo/cache"
 	"github.com/faws-vcs/faws/faws/repo/cas"
+	"github.com/faws-vcs/faws/faws/repo/event"
 	"github.com/faws-vcs/faws/faws/repo/revision"
 )
 
@@ -246,7 +247,10 @@ func (repo *Repository) cache_file(o *cache_options, path, origin string) (err e
 	}
 	defer origin_file.Close()
 
-	repo.notify(EvCacheFile, path, origin)
+	var notify_params event.NotifyParams
+	notify_params.Name1 = path
+	notify_params.Name2 = origin
+	repo.notify(event.NotifyCacheFile, &notify_params)
 
 	chunker, err = multipart.NewChunker(origin_file)
 	if err != nil {
@@ -274,7 +278,10 @@ func (repo *Repository) cache_file(o *cache_options, path, origin string) (err e
 
 			lazy_file_hash, err = repo.find_lazy_file(lazy_signature)
 			if err == nil {
-				repo.notify(EvCacheUsedLazySignature, entry.Path, lazy_file_hash)
+				var notify_params event.NotifyParams
+				notify_params.Name1 = entry.Path
+				notify_params.Object1 = lazy_file_hash
+				repo.notify(event.NotifyCacheUsedLazySignature, &notify_params)
 				// found lazy file id!
 				// increase all the references to its contents
 				if repo.index_object_is_cache(lazy_file_hash) {
@@ -433,7 +440,7 @@ func (repo *Repository) write_index() (err error) {
 		return
 	}
 
-	err = os.WriteFile(filepath.Join(repo.directory, "index"), index_data, fs.DefaultPerm)
+	err = os.WriteFile(filepath.Join(repo.directory, "index"), index_data, fs.DefaultPrivatePerm)
 	return
 }
 

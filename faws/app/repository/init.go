@@ -8,6 +8,7 @@ import (
 // Create a new repository in the current directory.
 type InitParams struct {
 	Directory string
+	Remote    string
 }
 
 func Init(p *InitParams) {
@@ -23,7 +24,7 @@ func Init(p *InitParams) {
 		reinitialize = true
 	}
 
-	if err := repo.Initialize(p.Directory, reinitialize); err != nil {
+	if err := repo.Initialize(p.Directory, p.Remote, reinitialize); err != nil {
 		app.Fatal(err)
 	}
 	if reinitialize {

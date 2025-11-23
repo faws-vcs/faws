@@ -1,4 +1,4 @@
-package init
+package pull
 
 import (
 	"os"
@@ -11,33 +11,52 @@ import (
 )
 
 var pull_cmd = cobra.Command{
-	Use:     "pull remote",
+	Use:     "pull [--tags|ref]",
 	Short:   helpinfo.Text["pull"],
 	GroupID: "remote",
 	Run:     run_pull_cmd,
 }
 
 func init() {
+	flag := pull_cmd.Flags()
+	flag.BoolP("tags", "t", false, "only pull the list of tags on the remote")
+	flag.BoolP("force", "f", false, "force the repository to pull information from the remote, even at the risk of losing track of local-only changes")
 	root.RootCmd.AddCommand(&pull_cmd)
 }
 
 func run_pull_cmd(cmd *cobra.Command, args []string) {
-	if len(args) == 0 {
-		cmd.Help()
-		os.Exit(1)
-	}
-
+	var err error
+	var working_directory string
 	// use working directory as default repository location
-	working_directory, err := os.Getwd()
+	working_directory, err = os.Getwd()
 	if err != nil {
 		app.Fatal(err)
 		return
 	}
 
-	// initialize the repository
+	// pull from the repository
 	var params = repository.PullParams{
 		Directory: working_directory,
-		Remote:    args[0],
+	}
+	if len(args) > 0 {
+		params.Ref = args[0]
+	}
+	flag := cmd.Flags()
+	params.Tags, err = flag.GetBool("tags")
+	if err != nil {
+		app.Fatal(err)
+		return
+	}
+	if !params.Tags {
+		if len(args) < 1 {
+			cmd.Help()
+			os.Exit(1)
+		}
+	}
+	params.Force, err = flag.GetBool("force")
+	if err != nil {
+		app.Fatal(err)
+		return
 	}
 	repository.Pull(&params)
 }

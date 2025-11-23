@@ -1,28 +1,11 @@
 package repo
 
-type Ev uint8
+import "github.com/faws-vcs/faws/faws/repo/event"
 
-const (
-	EvCacheFile = iota
-	EvCacheFilePart
-	EvCacheUsedLazySignature
-	EvPullTag
-	// ( object cas.ContentID, size int )
-	EvPullObject
-	// ( count int )
-	EvPullQueueCount
-	// ( prefix cas.Prefix, object cas.ContentID)
-	EvCorruptedObject
-	// ( prefix cas.Prefix, object cas.ContentID)
-	EvRemovedCorruptedObject
-)
-
-type NotifyFunc func(ev Ev, args ...any)
-
-func dont_care(ev Ev, args ...any) {
+func dont_care(ev event.Notification, params *event.NotifyParams) {
 }
 
-func WithNotify(fn NotifyFunc) Option {
+func WithNotify(fn event.NotifyFunc) Option {
 	return func(r *Repository) {
 		r.notify = fn
 	}

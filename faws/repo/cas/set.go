@@ -30,7 +30,7 @@ func (set *Set) store_path(id ContentID) (path string, err error) {
 	if err != nil {
 		return
 	}
-	err = os.MkdirAll(prefix, fs.DefaultPerm)
+	err = os.MkdirAll(prefix, fs.DefaultPublicDirPerm)
 	if err != nil {
 		return
 	}

@@ -2,6 +2,7 @@ package cas
 
 import (
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,7 +41,7 @@ func (set *Set) Deabbreviate(abbreviation string) (hash ContentID, err error) {
 	}
 
 	if found_name == "" {
-		err = ErrObjectNotFound
+		err = fmt.Errorf("%w: could not deabbreviate '%s'", ErrObjectNotFound, abbreviation)
 		return
 	}
 

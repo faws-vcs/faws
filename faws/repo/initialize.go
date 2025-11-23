@@ -1,15 +1,20 @@
 package repo
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/faws-vcs/faws/faws/fs"
+	"github.com/faws-vcs/faws/faws/repo/remote"
 )
 
-// Initialize an empty repository at the directory.
+// Initialize a repository at the directory.
 // if reinitialize == true, you are allowed to refresh an existing repository with updated basics.
-func Initialize(directory string, reinitialize bool) (err error) {
+// if remote_url != "", you create a reposito
+func Initialize(directory string, remote_url string, reinitialize bool) (err error) {
 	if Exists(directory) && !reinitialize {
 		err = ErrInitializeCannotExist
 		return
@@ -17,27 +22,56 @@ func Initialize(directory string, reinitialize bool) (err error) {
 
 	// create directory if it doesn't exist
 	if _, not_found := os.Stat(directory); not_found != nil {
-		err = os.Mkdir(directory, fs.DefaultPerm)
+		err = os.Mkdir(directory, fs.DefaultPublicDirPerm)
 		if err != nil {
 			return
 		}
 	}
 
+	var remote_fs remote.Fs
 	// create config
-	config_file := filepath.Join(directory, "config")
-	if _, not_found := os.Stat(config_file); not_found != nil {
-		err = WriteConfig(config_file, &Config{
-			Version: 1,
-		})
+	var config Config
+	config.Version = 1
+
+	config_name := filepath.Join(directory, "config")
+	if _, err = os.Stat(config_name); err == nil {
+		config = Config{}
+		if err = ReadConfig(config_name, &config); err != nil {
+			return
+		}
+	}
+
+	// Retrieve the remote's config
+	if remote_url != "" {
+		remote_fs, err = remote.Open(remote_url)
 		if err != nil {
 			return
 		}
+		var config_file io.ReadCloser
+		config_file, err = remote_fs.Pull("config")
+		if err != nil {
+			err = fmt.Errorf("faws/repo: remote repository does not exist")
+			return
+		}
+		config = Config{}
+		d := json.NewDecoder(config_file)
+		err = d.Decode(&config)
+		if err != nil {
+			return
+		}
+
+		config.Remote = remote_fs.URL()
+	}
+
+	err = WriteConfig(config_name, &config)
+	if err != nil {
+		return
 	}
 
 	// create tags
 	tags_directory := filepath.Join(directory, "tags")
 	if _, not_found := os.Stat(tags_directory); not_found != nil {
-		err = os.Mkdir(tags_directory, fs.DefaultPerm)
+		err = os.Mkdir(tags_directory, fs.DefaultPublicDirPerm)
 		if err != nil {
 			return
 		}

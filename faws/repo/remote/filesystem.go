@@ -12,6 +12,7 @@ type DirEntry struct {
 }
 
 type Fs interface {
+	URL() string
 	ReadDir(name string) (entries []DirEntry, err error)
 	Pull(name string) (file io.ReadCloser, err error)
 	// Push(name string, source io.Reader) (err error)

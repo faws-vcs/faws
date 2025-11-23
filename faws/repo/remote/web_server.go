@@ -44,6 +44,11 @@ func find_html_links(node *html.Node) (links []string, err error) {
 	return
 }
 
+func (ws *web_server) URL() (s string) {
+	s = ws.base_url.String()
+	return
+}
+
 func (ws *web_server) ReadDir(name string) (entries []DirEntry, err error) {
 	index_html_file, index_pull_err := ws.Pull(name + "/")
 	if index_pull_err != nil {

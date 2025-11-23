@@ -11,7 +11,7 @@ import (
 )
 
 var init_cmd = cobra.Command{
-	Use:     "init",
+	Use:     "init [remote]",
 	Short:   helpinfo.Text["init"],
 	GroupID: "repo",
 	Run:     run_init_cmd,
@@ -32,6 +32,9 @@ func run_init_cmd(cmd *cobra.Command, args []string) {
 	// initialize the repository
 	var params = repository.InitParams{
 		Directory: working_directory,
+	}
+	if len(args) > 0 {
+		params.Remote = args[0]
 	}
 	repository.Init(&params)
 }

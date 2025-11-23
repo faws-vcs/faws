@@ -2,15 +2,19 @@ package validate
 
 import (
 	"fmt"
-	"regexp"
+	"strings"
+	"unicode"
 )
 
 var (
-	ErrNametagTooLong           = fmt.Errorf("faws/validate: nametag is too long")
-	ErrNametagInvalidCharacters = fmt.Errorf("faws/validate: nametag contains invalid characters")
+	ErrNametagTooLong                    = fmt.Errorf("faws/validate: nametag is too long")
+	ErrNametagContainsTrailingWhitespace = fmt.Errorf("faws/validate: nametag contains trailing whitespace")
+	ErrNametagInvalidCharacters          = fmt.Errorf("faws/validate: nametag contains invalid characters")
 )
 
-var nametag_regex = regexp.MustCompilePOSIX("^[a-z0-9.]+$")
+func is_invalid_character(r rune) bool {
+	return !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '.' || r == '_' || r == '-')
+}
 
 func Nametag(n string) (err error) {
 	if n == "" {
@@ -20,7 +24,7 @@ func Nametag(n string) (err error) {
 		err = ErrNametagTooLong
 		return
 	}
-	if !nametag_regex.MatchString(n) {
+	if strings.ContainsFunc(n, is_invalid_character) {
 		err = ErrNametagInvalidCharacters
 		return
 	}

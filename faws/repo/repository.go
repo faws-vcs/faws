@@ -4,13 +4,16 @@ import (
 	"path/filepath"
 
 	"github.com/faws-vcs/faws/faws/repo/cas"
+	"github.com/faws-vcs/faws/faws/repo/event"
 )
 
 type Repository struct {
+	// describes what mode the repository operates under
+	config Config
 	// the mechanism for detecting new authors and verifying their identities
 	trust Trust
 	// called to notify the user of certain events
-	notify NotifyFunc
+	notify event.NotifyFunc
 	// the directory where the repoistory is located
 	directory string
 	// cas objects that belong to the repository itself
@@ -28,6 +31,7 @@ func (repo *Repository) Open(directory string, options ...Option) (err error) {
 		return
 	}
 
+	// ignore notifications by default
 	repo.notify = dont_care
 
 	// set directory
@@ -38,6 +42,10 @@ func (repo *Repository) Open(directory string, options ...Option) (err error) {
 	}
 
 	if err = repo.lock(); err != nil {
+		return
+	}
+
+	if err = ReadConfig(filepath.Join(repo.directory, "config"), &repo.config); err != nil {
 		return
 	}
 

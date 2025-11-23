@@ -2,6 +2,7 @@ package remote
 
 import (
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,6 +48,14 @@ func (d *directory) Pull(name string) (file io.ReadCloser, err error) {
 	}
 
 	file, err = os.Open(path)
+	return
+}
+
+func (d *directory) URL() (s string) {
+	var u url.URL
+	u.Scheme = "file"
+	u.Path = d.name
+	s = u.String()
 	return
 }
 

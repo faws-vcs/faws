@@ -83,7 +83,7 @@ func (repo *Repository) checkout_tree(tree_hash cas.ContentID, dest string, over
 		return
 	}
 
-	err = os.Mkdir(dest, fs.DefaultPerm)
+	err = os.Mkdir(dest, fs.DefaultPublicDirPerm)
 	if err != nil && !os.IsExist(err) {
 		return
 	}

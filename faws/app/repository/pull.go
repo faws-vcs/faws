@@ -2,13 +2,13 @@ package repository
 
 import (
 	"github.com/faws-vcs/faws/faws/app"
-	"github.com/faws-vcs/faws/faws/repo"
-	"github.com/faws-vcs/faws/faws/repo/remote"
 )
 
 type PullParams struct {
 	Directory string
-	Remote    string
+	Ref       string
+	Tags      bool
+	Force     bool
 }
 
 func Pull(params *PullParams) {
@@ -17,22 +17,19 @@ func Pull(params *PullParams) {
 		app.Close()
 	}()
 
-	if !repo.Exists(params.Directory) {
-		if err := repo.Initialize(params.Directory, false); err != nil {
-			app.Fatal(err)
-		}
-	}
-
 	if err := Open(params.Directory); err != nil {
 		app.Fatal(err)
 	}
 
-	fs, err := remote.Open(params.Remote)
-	if err != nil {
-		app.Fatal(err)
+	if params.Tags {
+		if err := Repo.PullTags(params.Force); err != nil {
+			app.Fatal(err)
+		}
+	} else {
+		if err := Repo.Pull(params.Ref, params.Force); err != nil {
+			app.Fatal(err)
+		}
 	}
 
-	if err := Repo.Pull(fs, true); err != nil {
-		app.Fatal(err)
-	}
+	Close()
 }

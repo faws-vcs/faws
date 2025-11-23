@@ -19,7 +19,7 @@ func (repo *Repository) ParseRef(ref string) (hash cas.ContentID, err error) {
 			hex.Decode(hash[:], ref_bytes[:cas.ContentIDSize*2])
 			return
 		}
-		// ref is a
+		// ref is an abbreviation
 		hash, err = repo.objects.Deabbreviate(ref)
 		return
 	}

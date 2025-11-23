@@ -16,7 +16,7 @@ func (set *Set) Load(id ContentID) (prefix Prefix, data []byte, err error) {
 	var object []byte
 	object, err = os.ReadFile(path)
 	if err != nil {
-		err = ErrObjectNotFound
+		err = fmt.Errorf("%w: %s", ErrObjectNotFound, id)
 		return
 	}
 	if len(object) < 4 {

@@ -19,10 +19,20 @@ func Create(params *CreateParams) {
 	if err != nil {
 		app.Fatal(err)
 	}
-	app.Log("created new identity", id)
+	app.Log("A new identity (ID) was created: ")
+	app.Quote(id.String())
+	nametag := id.String()
+	if params.Attributes.Nametag != "" {
+		nametag = params.Attributes.Nametag
+	}
 	if primary {
-		app.Warning("it is now your primary ID")
+		app.Warning("This is now your primary ID.\n")
+		app.Warning(`Remember that you may update the attributes of this ID at any time:`)
+		app.Quote("faws id set ", nametag, ` --nametag user.name --email user@example.com --description "info about you here"`)
 	} else {
-		app.Warning("however, it is not your primary ID")
+		app.Warning("This ID is not currently set as your primary ID. This means that it will not be used to author commits by default. In order to make it your primary:")
+		app.Quote("faws id primary ", nametag)
+		app.Warning("Alternatively, you may specify which ID you want to sign with before committing:")
+		app.Quote("faws commit --sign ", nametag)
 	}
 }

@@ -12,6 +12,8 @@ const Version = 1
 type Config struct {
 	// The Faws repository version
 	Version uint8 `json:"faws_version"`
+	// URL pointing to the original location of the repository
+	Remote string `json:"remote,omitempty"`
 }
 
 func ReadConfig(filename string, config *Config) (err error) {
@@ -32,6 +34,6 @@ func WriteConfig(filename string, config *Config) (err error) {
 		return
 	}
 
-	err = os.WriteFile(filename, data, fs.DefaultPerm)
+	err = os.WriteFile(filename, data, fs.DefaultPublicPerm)
 	return
 }

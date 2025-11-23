@@ -13,7 +13,7 @@ var Text = map[string]string{
 	"id rm":      "remove an identity from the ring",
 	"id set":     "alter various identity attributes",
 
-	"pull":   "download a remote into the current directory",
+	"pull":   "download a ref (tag/commit/tree/file/part) into the current directory",
 	"shadow": "download the minimum portion of a remote necessary to checkout a specific commit or other object",
 	"push":   "push an object and all its dependencies to the remote",
 
@@ -29,7 +29,7 @@ var Text = map[string]string{
 	"log":         "show commit logs",
 	"checkout":    "export a tree, or a tree of a commit, into a directory",
 	"cat-file":    "provide contents or details of repository objects",
-	"ls-tag":      "list tags and their associated commit hashes",
+	"tag":         "list tags and their associated commit hashes",
 	"ls-tree":     "list the contents of a tree object",
 	"fsck":        "enumerate an object hierarchy (and optionally remove) corrupted objects",
 	"mass-revise": "correct big mistakes across all tags",
@@ -75,6 +75,7 @@ var Categories = []CategoryEntry{
 			"checkout",
 			"fsck",
 			"mass-revise",
+			"tag",
 		},
 	},
 }

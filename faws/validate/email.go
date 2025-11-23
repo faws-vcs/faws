@@ -10,6 +10,9 @@ var (
 )
 
 func Email(n string) (err error) {
+	if n == "" {
+		return
+	}
 	_, err = mail.ParseAddress(n)
 	return
 }

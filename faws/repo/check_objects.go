@@ -5,6 +5,7 @@ import (
 
 	"github.com/faws-vcs/faws/faws/identity"
 	"github.com/faws-vcs/faws/faws/repo/cas"
+	"github.com/faws-vcs/faws/faws/repo/event"
 	"github.com/faws-vcs/faws/faws/repo/revision"
 )
 
@@ -17,14 +18,18 @@ func (repo *Repository) CheckObjects(id cas.ContentID, purge bool) (err error) {
 			prefix, _, err = repo.LoadObject(id)
 			if err != nil {
 				if errors.Is(err, cas.ErrObjectCorrupted) {
+					var notify_params event.NotifyParams
+					notify_params.Prefix = prefix
+					notify_params.Object1 = id
 					if purge {
 						err = repo.RemoveObject(id)
 						if err != nil {
 							return
 						}
-						repo.notify(EvRemovedCorruptedObject, prefix, id)
+
+						repo.notify(event.NotifyRemovedCorruptedObject, &notify_params)
 					} else {
-						repo.notify(EvCorruptedObject, prefix, id)
+						repo.notify(event.NotifyCorruptedObject, &notify_params)
 					}
 					err = nil
 					return
@@ -45,14 +50,17 @@ func (repo *Repository) CheckObjects(id cas.ContentID, purge bool) (err error) {
 	prefix, object_data, err = repo.LoadObject(id)
 	if err != nil {
 		if errors.Is(err, cas.ErrObjectCorrupted) {
+			var notify_params event.NotifyParams
+			notify_params.Prefix = prefix
+			notify_params.Object1 = id
 			if purge {
 				err = repo.RemoveObject(id)
 				if err != nil {
 					return
 				}
-				repo.notify(EvRemovedCorruptedObject, prefix, id)
+				repo.notify(event.NotifyRemovedCorruptedObject, &notify_params)
 			} else {
-				repo.notify(EvCorruptedObject, prefix, id)
+				repo.notify(event.NotifyCorruptedObject, &notify_params)
 			}
 			err = nil
 			return
@@ -67,21 +75,27 @@ func (repo *Repository) CheckObjects(id cas.ContentID, purge bool) (err error) {
 		err = revision.UnmarshalCommit(object_data, &commit)
 		if err != nil {
 			err = nil
+			var notify_params event.NotifyParams
+			notify_params.Prefix = prefix
+			notify_params.Object1 = id
 			if purge {
-				repo.notify(EvRemovedCorruptedObject, prefix, id)
+				repo.notify(event.NotifyRemovedCorruptedObject, &notify_params)
 				err = repo.RemoveObject(id)
 			} else {
-				repo.notify(EvCorruptedObject, prefix, id)
+				repo.notify(event.NotifyCorruptedObject, &notify_params)
 			}
 			return
 		}
 		if !identity.Verify(commit.Author, &commit.Signature, commit.Info) {
 			err = nil
+			var notify_params event.NotifyParams
+			notify_params.Prefix = prefix
+			notify_params.Object1 = id
 			if purge {
-				repo.notify(EvRemovedCorruptedObject, prefix, id)
+				repo.notify(event.NotifyRemovedCorruptedObject, &notify_params)
 				err = repo.RemoveObject(id)
 			} else {
-				repo.notify(EvCorruptedObject, prefix, id)
+				repo.notify(event.NotifyCorruptedObject, &notify_params)
 			}
 			return
 		}
@@ -89,11 +103,14 @@ func (repo *Repository) CheckObjects(id cas.ContentID, purge bool) (err error) {
 		err = revision.UnmarshalCommitInfo(commit.Info, &commit_info)
 		if err != nil {
 			err = nil
+			var notify_params event.NotifyParams
+			notify_params.Prefix = prefix
+			notify_params.Object1 = id
 			if purge {
-				repo.notify(EvRemovedCorruptedObject, prefix, id)
+				repo.notify(event.NotifyRemovedCorruptedObject, &notify_params)
 				err = repo.RemoveObject(id)
 			} else {
-				repo.notify(EvCorruptedObject, prefix, id)
+				repo.notify(event.NotifyCorruptedObject, &notify_params)
 			}
 			return
 		}
@@ -103,14 +120,17 @@ func (repo *Repository) CheckObjects(id cas.ContentID, purge bool) (err error) {
 		var tree revision.Tree
 		err = revision.UnmarshalTree(object_data, &tree)
 		if err != nil {
+			var notify_params event.NotifyParams
+			notify_params.Prefix = prefix
+			notify_params.Object1 = id
 			if purge {
 				if err = repo.RemoveObject(id); err != nil {
 					return
 				}
 
-				repo.notify(EvRemovedCorruptedObject, prefix, id)
+				repo.notify(event.NotifyRemovedCorruptedObject, &notify_params)
 			} else {
-				repo.notify(EvCorruptedObject, prefix, id)
+				repo.notify(event.NotifyCorruptedObject, &notify_params)
 			}
 
 			err = nil

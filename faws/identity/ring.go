@@ -200,6 +200,16 @@ func (ring *Ring) SetPrimary(id ID) (err error) {
 }
 
 func (ring *Ring) CreateIdentity(attributes *Attributes) (new_id ID, primary bool, err error) {
+	if err = validate.Nametag(attributes.Nametag); err != nil {
+		return
+	}
+	if err = validate.Email(attributes.Email); err != nil {
+		return
+	}
+	if err = validate.Description(attributes.Description); err != nil {
+		return
+	}
+
 	if attributes.Nametag != "" {
 		if current_id, name_not_found_err := ring.Lookup(attributes.Nametag); name_not_found_err == nil {
 			err = fmt.Errorf("%w: %s", ErrRingNametagInUse, current_id)
@@ -357,7 +367,7 @@ func WriteRing(filename string, ring *Ring) (err error) {
 		data = append(data, attributes_data...)
 	}
 
-	err = os.WriteFile(filename, data, fs.DefaultPerm)
+	err = os.WriteFile(filename, data, fs.DefaultPrivatePerm)
 	return
 }
 

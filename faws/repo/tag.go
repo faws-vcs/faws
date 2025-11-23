@@ -9,7 +9,6 @@ import (
 
 	"github.com/faws-vcs/faws/faws/fs"
 	"github.com/faws-vcs/faws/faws/repo/cas"
-	"github.com/faws-vcs/faws/faws/repo/revision"
 	"github.com/faws-vcs/faws/faws/validate"
 )
 
@@ -34,16 +33,18 @@ func (repo *Repository) read_tag(tag string) (commit_hash cas.ContentID, err err
 		return
 	}
 
-	var commit_info *revision.CommitInfo
-	_, commit_info, err = repo.check_commit(commit_hash)
-	if err != nil {
-		err = ErrTagInvalidCommit
-		repo.remove_tag(tag)
-	} else if commit_info.Tag != tag {
-		repo.remove_tag(tag)
-		err = ErrTagInvalidCommit
-		return
-	}
+	// commented out to allow for tags to point to remote objects
+
+	// var commit_info *revision.CommitInfo
+	// _, commit_info, err = repo.check_commit(commit_hash)
+	// if err != nil {
+	// 	err = ErrTagInvalidCommit
+	// 	repo.remove_tag(tag)
+	// } else if commit_info.Tag != tag {
+	// 	repo.remove_tag(tag)
+	// 	err = ErrTagInvalidCommit
+	// 	return
+	// }
 
 	return
 }
@@ -60,7 +61,7 @@ func (repo *Repository) write_tag(tag string, commit_hash cas.ContentID) (err er
 
 	path := filepath.Join(repo.directory, "tags", tag)
 
-	err = os.WriteFile(path, commit_hash[:], fs.DefaultPerm)
+	err = os.WriteFile(path, commit_hash[:], fs.DefaultPublicPerm)
 
 	return
 }

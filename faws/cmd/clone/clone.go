@@ -1,4 +1,4 @@
-package shadow
+package init
 
 import (
 	"os"
@@ -10,19 +10,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var shadow_cmd = cobra.Command{
-	Use:     "shadow remote ref",
-	Short:   helpinfo.Text["shadow"],
+var clone_cmd = cobra.Command{
+	Use:     "clone remote",
+	Short:   helpinfo.Text["clone"],
 	GroupID: "remote",
-	Run:     run_shadow_cmd,
+	Run:     run_clone_cmd,
 }
 
 func init() {
-	root.RootCmd.AddCommand(&shadow_cmd)
+	root.RootCmd.AddCommand(&clone_cmd)
 }
 
-func run_shadow_cmd(cmd *cobra.Command, args []string) {
-	if len(args) < 2 {
+func run_clone_cmd(cmd *cobra.Command, args []string) {
+	if len(args) == 0 {
 		cmd.Help()
 		os.Exit(1)
 	}
@@ -35,10 +35,9 @@ func run_shadow_cmd(cmd *cobra.Command, args []string) {
 	}
 
 	// initialize the repository
-	var params = repository.ShadowParams{
+	var params = repository.CloneParams{
 		Directory: working_directory,
 		Remote:    args[0],
-		Ref:       args[1],
 	}
-	repository.Shadow(&params)
+	repository.Clone(&params)
 }

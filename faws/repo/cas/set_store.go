@@ -44,7 +44,7 @@ func (set *Set) Store(prefix Prefix, data []byte) (new bool, id ContentID, err e
 
 	// open file
 	var file *os.File
-	file, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fs.DefaultPerm)
+	file, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fs.DefaultPublicPerm)
 	if err != nil {
 		return
 	}

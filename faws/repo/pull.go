@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"sync"
 
 	"github.com/faws-vcs/faws/faws/repo/cas"
+	"github.com/faws-vcs/faws/faws/repo/event"
 	"github.com/faws-vcs/faws/faws/repo/remote"
 	"github.com/faws-vcs/faws/faws/repo/revision"
 	"github.com/faws-vcs/faws/faws/validate"
-	"github.com/google/btree"
 )
 
 // 1. retrieve list of tags from server
@@ -20,32 +19,16 @@ import (
 // 3. go through all commits, looking for missing objects, put them in a queue
 // 4. download the missing objects, updating user on progress as we go
 
-type pull_queue struct {
-	guard sync.Mutex
-	items *btree.BTreeG[cas.ContentID]
-}
-
-func (pq *pull_queue) Len() int {
-	return pq.items.Len()
-}
-
-func (pq *pull_queue) Push(object_hash cas.ContentID) {
-	pq.items.ReplaceOrInsert(object_hash)
-}
-
-// when there are no more objects, ok is false.
-func (pq *pull_queue) Pop() (object_hash cas.ContentID, ok bool) {
-	pq.guard.Lock()
-	object_hash, ok = pq.items.DeleteMin()
-	pq.guard.Unlock()
-	return
-}
-
-func new_pull_queue() (pq *pull_queue) {
-	pq = new(pull_queue)
-	pq.items = btree.NewG(2, cas.ContentID.Less)
-	return
-}
+// NEW:
+// 1. retrieve list of tags from server
+// 2. read only one tag (fast; pull) or read all of them at once (slow; clone)
+// 3. (Commits stage) download all commits associated with each tag, then recursively each
+//     previous commit each commit has as its parent, putting each root tree into a queue
+// 4. (Trees stage) put all commit's root trees into a queue. Meanwhile, the queue
+//    is being drained in the background, and all higher trees are being added back to the queue
+//    (increasing the job count by 1 for each sub-tree, then decreasing for the already processed root tree (order is important so job count does not reach 0 prematurely), and so on up the chain)
+//    The background will only stop draining once the supply of objects is exhausted (as long as the job count is > 0)
+// 5. (Files stage) look
 
 func (repo *Repository) remote_cache_path(object_hash cas.ContentID) string {
 	s := object_hash.String()
@@ -91,7 +74,11 @@ func (repo *Repository) fetch_object(fs remote.Fs, object_hash cas.ContentID) (p
 			return
 		}
 
-		repo.notify(EvPullObject, prefix, object_hash, len(object_data)-4)
+		var notify_params event.NotifyParams
+		notify_params.Prefix = prefix
+		notify_params.Object1 = object_hash
+		notify_params.Count = len(object_data) - 4
+		repo.notify(event.NotifyPullObject, &notify_params)
 	} else if err != nil {
 		return
 	}
@@ -99,119 +86,8 @@ func (repo *Repository) fetch_object(fs remote.Fs, object_hash cas.ContentID) (p
 	return
 }
 
-func (repo *Repository) pull_remote_file(pq *pull_queue, fs remote.Fs, file_hash cas.ContentID) (err error) {
-	var (
-		prefix    cas.Prefix
-		file_data []byte
-	)
-	prefix, file_data, err = repo.fetch_object(fs, file_hash)
-	if err != nil {
-		return
-	}
-	if prefix != cas.File {
-		err = fmt.Errorf("%w: remote file object %s has invalid prefix %s", ErrBadObject, file_hash, prefix)
-		return
-	}
-
-	var part_id cas.ContentID
-	for len(file_data) > 0 {
-		copy(part_id[:], file_data[:cas.ContentIDSize])
-
-		if _, err = repo.objects.Stat(part_id); err != nil {
-			pq.Push(part_id)
-			err = nil
-		}
-
-		file_data = file_data[cas.ContentIDSize:]
-	}
-	return
-}
-
-func (repo *Repository) pull_remote_tree(pq *pull_queue, fs remote.Fs, tree_hash cas.ContentID) (err error) {
-	var (
-		prefix    cas.Prefix
-		tree_data []byte
-		tree      revision.Tree
-	)
-	prefix, tree_data, err = repo.fetch_object(fs, tree_hash)
-	if err != nil {
-		return
-	}
-	if prefix != cas.Tree {
-		err = fmt.Errorf("%w: remote tree object %s has invalid prefix %s", ErrBadObject, tree_hash, prefix)
-		return
-	}
-
-	if err = revision.UnmarshalTree(tree_data, &tree); err != nil {
-		return
-	}
-
-	for _, entry := range tree.Entries {
-		switch entry.Prefix {
-		case cas.File:
-			if err = repo.pull_remote_file(pq, fs, entry.Content); err != nil {
-				return
-			}
-		case cas.Tree:
-			if err = repo.pull_remote_tree(pq, fs, entry.Content); err != nil {
-				return
-			}
-		default:
-			err = fmt.Errorf("%w: remote tree object %s entry %s contains invalid prefix %s", ErrBadObject, tree_hash, entry.Content, prefix)
-			return
-		}
-	}
-
-	return
-}
-
-// pull information for a commits and all parents, trees, and files
-func (repo *Repository) pull_remote_commits(pq *pull_queue, fs remote.Fs, commit_hash cas.ContentID) (err error) {
-	for commit_hash != cas.Nil {
-		var (
-			prefix      cas.Prefix
-			commit_data []byte
-		)
-
-		prefix, commit_data, err = repo.fetch_object(fs, commit_hash)
-		if err != nil {
-			return
-		}
-
-		if prefix != cas.Commit {
-			err = ErrBadCommit
-			return
-		}
-
-		var (
-			commit      revision.Commit
-			commit_info revision.CommitInfo
-		)
-
-		if err = revision.UnmarshalCommit(commit_data, &commit); err != nil {
-			return
-		}
-
-		if err = revision.UnmarshalCommitInfo(commit.Info, &commit_info); err != nil {
-			return
-		}
-
-		if err = repo.pull_remote_tree(pq, fs, commit_info.Tree); err != nil {
-			return
-		}
-
-		commit_hash = commit_info.Parent
-	}
-
-	// if commit_hash already is in the repository,
-
-	// if _, err = repo.objects.Stat(commit_hash); err != nil && errors.Is(err, cas.ErrObjectNotFound) {
-
-	return
-}
-
-// check if the
-func (repo *Repository) pull_remote_tag(pq *pull_queue, fs remote.Fs, tag string, force bool) (remote_commit_hash cas.ContentID, err error) {
+// download a tag from the remote, but do not download all its contained information at once
+func (repo *Repository) pull_remote_tag(fs remote.Fs, tag string, force bool) (remote_commit_hash cas.ContentID, err error) {
 	var (
 		file io.ReadCloser
 	)
@@ -224,40 +100,54 @@ func (repo *Repository) pull_remote_tag(pq *pull_queue, fs remote.Fs, tag string
 	}
 	file.Close()
 
-	if err = repo.pull_remote_commits(pq, fs, remote_commit_hash); err != nil {
-		return
-	}
-
 	var (
 		local_commit_hash cas.ContentID
 	)
 	local_commit_hash, err = repo.read_tag(tag)
 	if force || err != nil {
+		var notify_params event.NotifyParams
+		notify_params.Name1 = tag
+		notify_params.Object1 = local_commit_hash
+		notify_params.Object2 = remote_commit_hash
+
+		repo.notify(event.NotifyPullTag, &notify_params)
 		err = repo.write_tag(tag, remote_commit_hash)
 	} else {
-
 		var commit_info *revision.CommitInfo
-		current_commit_hash := remote_commit_hash
-		// tag already exists
-		// overwrite if remote is based on local
-		overwrite := false
-		for current_commit_hash != cas.Nil {
-			_, commit_info, err = repo.check_commit(current_commit_hash)
+		current_remote_commit_hash := remote_commit_hash
+		should_overwrite_tag := false
+
+		for current_remote_commit_hash != cas.Nil {
+			_, _, err = repo.fetch_object(fs, current_remote_commit_hash)
 			if err != nil {
 				return
 			}
 
-			current_commit_hash = commit_info.Parent
+			// look for commit info for this step in the tag's history
+			_, commit_info, err = repo.check_commit(current_remote_commit_hash)
+			if err != nil {
+				return
+			}
 
-			if current_commit_hash == local_commit_hash {
-				overwrite = true
+			// if this step in the tag's history is the current local commit hash
+			if current_remote_commit_hash == local_commit_hash {
+				// we should overwrite the tag
+				should_overwrite_tag = true
 				break
 			}
+			// move to the previous commit
+			current_remote_commit_hash = commit_info.Parent
 		}
 
-		if overwrite {
-			repo.notify(EvPullTag, tag, local_commit_hash, remote_commit_hash)
+		if should_overwrite_tag {
+			var notify_params event.NotifyParams
+			notify_params.Name1 = tag
+			notify_params.Object1 = local_commit_hash
+			notify_params.Object2 = remote_commit_hash
+			repo.notify(event.NotifyPullTag, &notify_params)
 			err = repo.write_tag(tag, remote_commit_hash)
+		} else {
+			err = ErrLocalTagNotInRemote
 		}
 	}
 
@@ -282,39 +172,21 @@ func (repo *Repository) list_remote_tags(fs remote.Fs) (tags []string, err error
 	return
 }
 
-func (repo *Repository) pull_queue(fs remote.Fs, pq *pull_queue) (err error) {
-	if pq.Len() > 0 {
-		repo.notify(EvPullQueueCount, int(pq.Len()))
-
-		num_workers := 12
-		var wg sync.WaitGroup
-		wg.Add(num_workers)
-
-		for i := 0; i < num_workers; i++ {
-			go func() {
-				for {
-					next_object_hash, ok := pq.Pop()
-					if !ok {
-						break
-					}
-
-					if _, _, err := repo.fetch_object(fs, next_object_hash); err != nil {
-						panic(err)
-						// return
-					}
-				}
-
-				wg.Done()
-			}()
-		}
-
-		wg.Wait()
+func (repo *Repository) Clone(force bool) (err error) {
+	if repo.config.Remote == "" {
+		err = fmt.Errorf("faws/repo: cannot clone with no remote")
+		return
 	}
-	return
-}
 
-func (repo *Repository) Pull(fs remote.Fs, force bool) (err error) {
-	pq := new_pull_queue()
+	var fs remote.Fs
+	fs, err = remote.Open(repo.config.Remote)
+	if err != nil {
+		return
+	}
+
+	var pull_tags_stage event.NotifyParams
+	pull_tags_stage.Stage = event.StagePullTags
+	repo.notify(event.NotifyBeginStage, &pull_tags_stage)
 
 	var tags []string
 	tags, err = repo.list_remote_tags(fs)
@@ -322,13 +194,17 @@ func (repo *Repository) Pull(fs remote.Fs, force bool) (err error) {
 		return
 	}
 
-	for _, tag := range tags {
-		if _, err = repo.pull_remote_tag(pq, fs, tag, force); err != nil {
+	tag_commit_hashes := make([]cas.ContentID, len(tags))
+
+	for i, tag := range tags {
+		if tag_commit_hashes[i], err = repo.pull_remote_tag(fs, tag, force); err != nil {
 			return
 		}
 	}
 
-	err = repo.pull_queue(fs, pq)
+	repo.notify(event.NotifyCompleteStage, &pull_tags_stage)
+
+	err = repo.pull_object_graph(fs, tag_commit_hashes...)
 
 	return
 }
@@ -374,8 +250,16 @@ func (repo *Repository) deabbreviate_remote_hash(fs remote.Fs, ref string) (obje
 }
 
 // Pull only objects associated with a tag or an abbreviated object hash
-func (repo *Repository) Shadow(fs remote.Fs, ref string, force bool) (err error) {
-	pq := new_pull_queue()
+func (repo *Repository) Pull(ref string, force bool) (err error) {
+	if repo.config.Remote == "" {
+		err = fmt.Errorf("faws/repo: cannot pull into a local repository")
+		return
+	}
+
+	fs, err := remote.Open(repo.config.Remote)
+	if err != nil {
+		return
+	}
 
 	var tags []string
 	tags, err = repo.list_remote_tags(fs)
@@ -389,7 +273,7 @@ func (repo *Repository) Shadow(fs remote.Fs, ref string, force bool) (err error)
 	for _, tag := range tags {
 		if tag == ref {
 			found_tag = true
-			object_hash, err = repo.pull_remote_tag(pq, fs, ref, force)
+			object_hash, err = repo.pull_remote_tag(fs, ref, force)
 			if err != nil {
 				return
 			}
@@ -404,30 +288,29 @@ func (repo *Repository) Shadow(fs remote.Fs, ref string, force bool) (err error)
 		}
 	}
 
-	var (
-		prefix cas.Prefix
-	)
+	err = repo.pull_object_graph(fs, object_hash)
 
-	// find what kind of object this is, so its dependencies can be fetched
-	prefix, _, err = repo.fetch_object(fs, object_hash)
+	return
+}
+
+func (repo *Repository) PullTags(force bool) (err error) {
+	var fs remote.Fs
+	fs, err = remote.Open(repo.config.Remote)
 	if err != nil {
 		return
 	}
 
-	switch prefix {
-	case cas.Commit:
-		err = repo.pull_remote_commits(pq, fs, object_hash)
-	case cas.Tree:
-		err = repo.pull_remote_tree(pq, fs, object_hash)
-	case cas.File:
-		err = repo.pull_remote_file(pq, fs, object_hash)
-	}
-
+	var tags []string
+	tags, err = repo.list_remote_tags(fs)
 	if err != nil {
 		return
 	}
 
-	err = repo.pull_queue(fs, pq)
+	for _, tag := range tags {
+		if _, err = repo.pull_remote_tag(fs, tag, force); err != nil {
+			return
+		}
+	}
 
 	return
 }

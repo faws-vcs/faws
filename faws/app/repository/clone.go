@@ -3,23 +3,21 @@ package repository
 import (
 	"github.com/faws-vcs/faws/faws/app"
 	"github.com/faws-vcs/faws/faws/repo"
-	"github.com/faws-vcs/faws/faws/repo/remote"
 )
 
-type ShadowParams struct {
+type CloneParams struct {
 	Directory string
 	Remote    string
-	Ref       string
 }
 
-func Shadow(params *ShadowParams) {
+func Clone(params *CloneParams) {
 	app.Open()
 	defer func() {
 		app.Close()
 	}()
 
 	if !repo.Exists(params.Directory) {
-		if err := repo.Initialize(params.Directory, false); err != nil {
+		if err := repo.Initialize(params.Directory, params.Remote, false); err != nil {
 			app.Fatal(err)
 		}
 	}
@@ -28,12 +26,7 @@ func Shadow(params *ShadowParams) {
 		app.Fatal(err)
 	}
 
-	fs, err := remote.Open(params.Remote)
-	if err != nil {
-		app.Fatal(err)
-	}
-
-	if err := Repo.Shadow(fs, params.Ref, true); err != nil {
+	if err := Repo.Clone(true); err != nil {
 		app.Fatal(err)
 	}
 }
