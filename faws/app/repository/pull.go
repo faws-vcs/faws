@@ -9,6 +9,7 @@ type PullParams struct {
 	Ref       string
 	Tags      bool
 	Force     bool
+	Verbose   bool
 }
 
 func Pull(params *PullParams) {
@@ -20,6 +21,8 @@ func Pull(params *PullParams) {
 	if err := Open(params.Directory); err != nil {
 		app.Fatal(err)
 	}
+
+	scrn.verbose = params.Verbose
 
 	if params.Tags {
 		if err := Repo.PullTags(params.Force); err != nil {

@@ -24,6 +24,7 @@ var (
 func init() {
 	flags := SetCmd.Flags()
 
+	flags.Bool("primary", false, "make this ID your primary (default commit signing key)")
 	flags.String("nametag", "", "a short string without spaces used to identify the commit author")
 	flags.String("email", "", "a public email associated with the commit author")
 	flags.String("description", "", "a longer text field for describing yourself. A good place to put a URL")
@@ -91,6 +92,11 @@ func run_set_cmd(cmd *cobra.Command, args []string) {
 	} else {
 		// default to now
 		set_identity_attributes_params.Attributes.Date = time.Now().Unix()
+	}
+
+	set_identity_attributes_params.SetPrimary, err = flags.GetBool("primary")
+	if err != nil {
+		app.Fatal(err)
 	}
 
 	identities.SetAttributes(&set_identity_attributes_params)

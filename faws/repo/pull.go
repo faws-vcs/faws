@@ -194,6 +194,10 @@ func (repo *Repository) Clone(force bool) (err error) {
 		return
 	}
 
+	var tags_in_queue event.NotifyParams
+	tags_in_queue.Count = len(tags)
+	repo.notify(event.NotifyTagQueueCount, &tags_in_queue)
+
 	tag_commit_hashes := make([]cas.ContentID, len(tags))
 
 	for i, tag := range tags {
@@ -202,6 +206,7 @@ func (repo *Repository) Clone(force bool) (err error) {
 		}
 	}
 
+	pull_tags_stage.Success = true
 	repo.notify(event.NotifyCompleteStage, &pull_tags_stage)
 
 	err = repo.pull_object_graph(fs, tag_commit_hashes...)
@@ -272,11 +277,24 @@ func (repo *Repository) Pull(ref string, force bool) (err error) {
 
 	for _, tag := range tags {
 		if tag == ref {
+			var notify_pull_tags event.NotifyParams
+			notify_pull_tags.Stage = event.StagePullTags
+			repo.notify(event.NotifyBeginStage, &notify_pull_tags)
+
+			var notify_tag_count event.NotifyParams
+			notify_tag_count.Count = 1
+			repo.notify(event.NotifyTagQueueCount, &notify_tag_count)
+
 			found_tag = true
 			object_hash, err = repo.pull_remote_tag(fs, ref, force)
 			if err != nil {
+				repo.notify(event.NotifyCompleteStage, &notify_pull_tags)
 				return
 			}
+
+			notify_pull_tags.Success = true
+			repo.notify(event.NotifyCompleteStage, &notify_pull_tags)
+
 			break
 		}
 	}

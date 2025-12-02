@@ -13,21 +13,31 @@ var (
 )
 
 func (repo *Repository) ParseRef(ref string) (hash cas.ContentID, err error) {
-	if validate.Hex(ref) {
-		if len(ref) >= cas.ContentIDSize*2 {
-			ref_bytes := []byte(ref)
-			hex.Decode(hash[:], ref_bytes[:cas.ContentIDSize*2])
-			return
-		}
-		// ref is an abbreviation
-		hash, err = repo.objects.Deabbreviate(ref)
-		return
+	ref_is_valid_hex := validate.Hex(ref)
+
+	// abbreviated hashes
+	if ref_is_valid_hex && len(ref) == cas.ContentIDSize*2 {
+		goto parse_hex
 	}
 
 	// search for tags
-	if hash, err = repo.read_tag(ref); err != nil {
+	if hash, err = repo.read_tag(ref); err == nil {
+		// tag is valid!
 		return
 	}
 
+	if !ref_is_valid_hex {
+		err = ErrBadRef
+		return
+	}
+
+parse_hex:
+	if len(ref) >= cas.ContentIDSize*2 {
+		ref_bytes := []byte(ref)
+		hex.Decode(hash[:], ref_bytes[:cas.ContentIDSize*2])
+		return
+	}
+	// ref is an abbreviation
+	hash, err = repo.objects.Deabbreviate(ref)
 	return
 }

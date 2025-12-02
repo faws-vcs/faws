@@ -11,7 +11,7 @@ import (
 )
 
 var clone_cmd = cobra.Command{
-	Use:     "clone remote",
+	Use:     "clone remote [directory]",
 	Short:   helpinfo.Text["clone"],
 	GroupID: "remote",
 	Run:     run_clone_cmd,
@@ -39,5 +39,11 @@ func run_clone_cmd(cmd *cobra.Command, args []string) {
 		Directory: working_directory,
 		Remote:    args[0],
 	}
+
+	// use the second argument as repository location, if supplied
+	if len(args) > 1 {
+		params.Directory = args[1]
+	}
+
 	repository.Clone(&params)
 }

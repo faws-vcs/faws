@@ -11,6 +11,7 @@ const (
 	NotifyPullTag
 	// ( object cas.ContentID, size int )
 	NotifyPullObject
+	NotifyTagQueueCount
 	// ( count int )
 	NotifyPullQueueCount
 	// ( prefix cas.Prefix, object cas.ContentID)
@@ -27,6 +28,8 @@ const (
 	//
 	//
 	StageNone Stage = iota
+	StageCacheFiles
+	StageWriteTree
 	StagePullTags
 	StagePullObjects
 )

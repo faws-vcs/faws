@@ -16,7 +16,7 @@ func list_tree_object(recurse bool, tree *revision.Tree, path string) {
 	for _, entry := range tree.Entries {
 		switch entry.Prefix {
 		case cas.File:
-			app.Println(entry.Mode, "file", entry.Content, "  ", path+entry.Name)
+			app.Info(entry.Mode, "file", entry.Content, "  ", path+entry.Name)
 		case cas.Tree:
 			if recurse {
 				sub_tree, err := Repo.Tree(entry.Content)
@@ -25,7 +25,7 @@ func list_tree_object(recurse bool, tree *revision.Tree, path string) {
 				}
 				list_tree_object(recurse, sub_tree, path+entry.Name+"/")
 			} else {
-				app.Println(entry.Mode, "tree", entry.Content, "  ", path+entry.Name)
+				app.Info(entry.Mode, "tree", entry.Content, "  ", path+entry.Name)
 			}
 		}
 	}

@@ -10,6 +10,7 @@ var (
 
 	ErrAbbreviationAmbiguous = fmt.Errorf("faws/repo/cas: abbreviation is ambiguous")
 	ErrAbbreviationTooShort  = fmt.Errorf("faws/repo/cas: abbreviation is too short to be expanded")
+	ErrAbbreviationNotHex    = fmt.Errorf("faws/repo/cas: abbreviation is not hexadecimal")
 
 	ErrObjectNotFound = fmt.Errorf("faws/repo/cas: object not found")
 )

@@ -436,3 +436,27 @@ func (ring *Ring) GetNametagPair(nametag string, pair *Pair, attributes *Attribu
 	err = ErrRingKeyNotFound
 	return
 }
+
+func (ring *Ring) GetPair(name string, pair *Pair, attributes *Attributes) (err error) {
+	if validate.Hex(name) {
+		var deabbreviated ID
+		if deabbreviated, err = ring.Deabbreviate(name); err == nil {
+			for i := range ring.secret {
+				secret_entry := &ring.secret[i]
+				if secret_entry.Pair.ID() == deabbreviated {
+					if pair != nil {
+						*pair = secret_entry.Pair
+					}
+					if attributes != nil {
+						*attributes = secret_entry.Attributes
+					}
+					return
+				}
+			}
+		}
+		err = nil
+	}
+
+	err = ring.GetNametagPair(name, pair, attributes)
+	return
+}

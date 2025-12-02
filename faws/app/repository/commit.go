@@ -44,7 +44,7 @@ func Commit(params *CommitParams) {
 			app.Warning("to create one")
 		}
 	} else {
-		err = ring.GetNametagPair(params.Sign, &signing_identity, &author_attributes)
+		err = ring.GetPair(params.Sign, &signing_identity, &author_attributes)
 	}
 	if err != nil {
 		app.Fatal(err)

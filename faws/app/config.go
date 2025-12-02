@@ -4,12 +4,15 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/faws-vcs/console"
 	"github.com/faws-vcs/faws/faws/config"
 )
 
 var Configuration config.Configuration
 
 func Open() {
+	console.Open()
+
 	directory := os.Getenv("FAWS_CONFIG")
 
 	if directory == "" {
@@ -23,10 +26,13 @@ func Open() {
 	if err := Configuration.Open(directory); err != nil {
 		Fatal(err)
 	}
+
 }
 
 func Close() {
 	if err := Configuration.Close(); err != nil {
 		Fatal(err)
 	}
+
+	console.Close()
 }

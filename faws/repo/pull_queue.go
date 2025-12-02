@@ -172,6 +172,9 @@ loop:
 
 		pq.CompleteTask(object_hash)
 
+		var notify_object_count event.NotifyParams
+		notify_object_count.Count = pq.available_tasks.Len() + pq.popped_tasks.Len()
+		repo.notify(event.NotifyPullQueueCount, &notify_object_count)
 	}
 
 	if err != nil {
@@ -221,6 +224,9 @@ func (repo *Repository) pull_object_graph(fs remote.Fs, objects ...cas.ContentID
 	}
 
 	// notify that we are done pulling objects
+	if err == nil {
+		pulling_objects.Success = true
+	}
 	repo.notify(event.NotifyCompleteStage, &pulling_objects)
 
 	return

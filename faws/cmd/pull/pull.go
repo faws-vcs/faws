@@ -19,8 +19,9 @@ var pull_cmd = cobra.Command{
 
 func init() {
 	flag := pull_cmd.Flags()
-	flag.BoolP("tags", "t", false, "only pull the list of tags on the remote")
+	flag.BoolP("tag", "t", false, "only pull the list of tags on the remote")
 	flag.BoolP("force", "f", false, "force the repository to pull information from the remote, even at the risk of losing track of local-only changes")
+	flag.BoolP("verbose", "v", false, "display extra information")
 	root.RootCmd.AddCommand(&pull_cmd)
 }
 
@@ -42,7 +43,7 @@ func run_pull_cmd(cmd *cobra.Command, args []string) {
 		params.Ref = args[0]
 	}
 	flag := cmd.Flags()
-	params.Tags, err = flag.GetBool("tags")
+	params.Tags, err = flag.GetBool("tag")
 	if err != nil {
 		app.Fatal(err)
 		return
@@ -54,6 +55,11 @@ func run_pull_cmd(cmd *cobra.Command, args []string) {
 		}
 	}
 	params.Force, err = flag.GetBool("force")
+	if err != nil {
+		app.Fatal(err)
+		return
+	}
+	params.Verbose, err = flag.GetBool("verbose")
 	if err != nil {
 		app.Fatal(err)
 		return

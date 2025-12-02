@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"github.com/faws-vcs/console"
 	"github.com/faws-vcs/faws/faws/app"
 	"github.com/faws-vcs/faws/faws/app/identities"
 	"github.com/faws-vcs/faws/faws/repo"
@@ -13,6 +14,8 @@ func Open(directory string) (err error) {
 		repo.WithTrust(identities.NewRingTrust(app.Configuration.Ring())),
 		repo.WithNotify(notify),
 	)
+
+	console.RenderFunc(render_activity_screen)
 	return
 }
 

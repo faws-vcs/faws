@@ -9,6 +9,8 @@ import (
 type SetAttributesParams struct {
 	ID string
 
+	SetPrimary bool
+
 	SetNametag     bool
 	SetEmail       bool
 	SetDescription bool
@@ -34,6 +36,15 @@ func SetAttributes(params *SetAttributesParams) {
 	if err := ring.GetAttributesSecret(id, &attributes); err != nil {
 		app.Fatal(err)
 		return
+	}
+
+	if params.SetPrimary {
+		app.Log("setting primary")
+		err = ring.SetPrimary(id)
+		if err != nil {
+			app.Fatal(err)
+		}
+		app.Log("set primary identity to", id)
 	}
 
 	if params.SetNametag {

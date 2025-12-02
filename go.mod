@@ -1,6 +1,6 @@
 module github.com/faws-vcs/faws
 
-go 1.24.0
+go 1.25.4
 
 require (
 	github.com/Gophercraft/mpq v0.1.1-0.20250127065928-651347da2df6
@@ -22,7 +22,9 @@ require (
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
 	github.com/containerd/console v1.0.5 // indirect
+	github.com/faws-vcs/console v0.0.0-20251201213153-864b5ebc8407 // indirect
 	github.com/gookit/color v1.6.0 // indirect
+	github.com/gosuri/uilive v0.0.4 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
