@@ -1,8 +1,6 @@
 package repository
 
 import (
-	"fmt"
-
 	"github.com/faws-vcs/faws/faws/app"
 	"github.com/faws-vcs/faws/faws/identity"
 	"github.com/faws-vcs/faws/faws/repo/revision"
@@ -85,5 +83,5 @@ func Commit(params *CommitParams) {
 		app.Fatal(err)
 		return
 	}
-	fmt.Println(content_id)
+	app.Info(content_id)
 }

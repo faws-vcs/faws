@@ -1,8 +1,6 @@
 package repository
 
 import (
-	"fmt"
-
 	"github.com/faws-vcs/faws/faws/app"
 )
 
@@ -28,5 +26,5 @@ func WriteTree(params *WriteTreeParams) {
 		app.Fatal(err)
 		return
 	}
-	fmt.Println(content_id)
+	app.Info(content_id)
 }

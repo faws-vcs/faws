@@ -102,6 +102,6 @@ func ViewLog(params *ViewLogParams) {
 
 	for _, commit_hash := range log {
 		display_commit(commit_hash)
-		fmt.Println()
+		app.Info()
 	}
 }

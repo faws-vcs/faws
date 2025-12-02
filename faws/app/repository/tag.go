@@ -1,8 +1,6 @@
 package repository
 
 import (
-	"fmt"
-
 	"github.com/faws-vcs/faws/faws/app"
 )
 
@@ -27,7 +25,7 @@ func ListTags(params *ListTagsParams) {
 	}
 
 	for _, tag := range tags {
-		fmt.Println(tag.Hash, tag.Name)
+		app.Info(tag.Hash, tag.Name)
 	}
 
 	Close()

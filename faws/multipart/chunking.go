@@ -3,11 +3,11 @@ package multipart
 import (
 	"bytes"
 	"encoding/hex"
-	"fmt"
 	"io"
 
 	mpqinfo "github.com/Gophercraft/mpq/info"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/faws-vcs/faws/faws/app"
 )
 
 type Chunker interface {
@@ -77,11 +77,11 @@ func NewChunker(file io.ReadSeeker) (chunker Chunker, err error) {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println("mpq failed to start: ", err)
+		app.Info("mpq failed to start: ", err)
 	default:
 	}
 
-	fmt.Println("no smart chunker for this signature", spew.Sdump(magic))
+	app.Info("no smart chunker for this signature", spew.Sdump(magic))
 	chunker = new_generic_chunker(file)
 	return
 }

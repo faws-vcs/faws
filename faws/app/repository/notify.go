@@ -66,32 +66,6 @@ func update_pull_info(object_size int, object_prefix cas.Prefix, object_hash cas
 	scrn.last_object_prefix = object_prefix
 	scrn.last_object_hash = object_hash
 	scrn.last_object_size = uint64(object_size)
-
-	// // #/#
-	// progress_text := fmt.Sprintf("%d/%d", scrn.objects_received, scrn.objects_in_queue)
-	// prefix_text := prefix(object_prefix)
-	// object_hash_abbreviation := object_hash.String()[:10]
-	// object_size_human := humanize.Bytes(uint64(object_size))
-	// bytes_received_human := humanize.Bytes(scrn.bytes_received)
-
-	// if scrn.in_progress {
-	// 	pterm.DefaultArea.Start()
-
-	// 	// progress :=
-	// 	msg = fmt.Sprintf("%6s %s %6s %16s objects received %s total",
-	// 		prefix(object_prefix),
-	// 		object_hash.String()[:10],
-	// 		humanize.Bytes(uint64(object_size)),
-	// 		progress,
-	// 		humanize.Bytes(scrn.bytes_received))
-	// } else {
-	// 	msg = fmt.Sprintf("%6s %s %6s %s total",
-	// 		prefix(object_prefix),
-	// 		object_hash.String()[:10],
-	// 		humanize.Bytes(uint64(object_size)),
-	// 		humanize.Bytes(scrn.bytes_received))
-	// }
-	// // app.Info(fmt.Sprintf("\r%s", msg))
 }
 
 func prefix(p cas.Prefix) string {
@@ -108,8 +82,6 @@ func prefix(p cas.Prefix) string {
 		return ""
 	}
 }
-
-var ()
 
 func notify(ev event.Notification, params *event.NotifyParams) {
 	guard.Lock()

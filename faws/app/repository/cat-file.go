@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/faws-vcs/faws/faws/app"
@@ -68,11 +67,11 @@ func CatFile(params *CatFileParams) {
 			var file_part cas.ContentID
 			for len(object) > 0 {
 				copy(file_part[:], object[:cas.ContentIDSize])
-				fmt.Println(file_part)
+				app.Info(file_part)
 				object = object[cas.ContentIDSize:]
 			}
 		case cas.Part:
-			fmt.Println("run without -p, --pretty-print to output raw data")
+			app.Info("run without -p, --pretty-print to output raw data")
 		default:
 			panic(prefix)
 		}
