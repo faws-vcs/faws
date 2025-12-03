@@ -78,4 +78,12 @@ var Categories = []CategoryEntry{
 			"tag",
 		},
 	},
+
+	{
+		"about",
+		"get information about your copy of Faws",
+		[]string{
+			"version",
+		},
+	},
 }

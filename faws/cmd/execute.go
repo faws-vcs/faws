@@ -28,6 +28,8 @@ import (
 	_ "github.com/faws-vcs/faws/faws/cmd/tag"
 	_ "github.com/faws-vcs/faws/faws/cmd/write-tree"
 
+	_ "github.com/faws-vcs/faws/faws/cmd/version"
+
 	"github.com/faws-vcs/faws/faws/cmd/root"
 )
 
