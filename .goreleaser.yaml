@@ -22,6 +22,8 @@ builds:
       - linux
       - windows
       - darwin
+    ldflags:
+      - -s -w -X github.com/faws-vcs/faws/faws/app/about.version={{.Version}} -X github.com/faws-vcs/faws/faws/app/about.commit={{.Commit}} -X github.com/faws-vcs/faws/faws/app/about.date={{.Date}} -X github.com/faws-vcs/faws/faws/app/about.builtBy=goreleaser'
 
 archives:
   - formats: [tar.gz]
