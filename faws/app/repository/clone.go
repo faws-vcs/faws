@@ -35,15 +35,7 @@ func Clone(params *CloneParams) {
 	}
 
 	if !repo.Exists(params.Directory) {
-		dir_entries, err := os.ReadDir(params.Directory)
-		if err != nil {
-			return
-		}
-		if len(dir_entries) != 0 && !params.Force {
-			app.Fatal("refusing to clone into a non-empty directory (use -f, --force if this is what you really want to do)")
-		}
-
-		if err := repo.Initialize(params.Directory, params.Remote, false); err != nil {
+		if err := repo.Initialize(params.Directory, params.Remote, false, params.Force); err != nil {
 			app.Fatal(err)
 		}
 	}

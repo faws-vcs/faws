@@ -9,6 +9,7 @@ import (
 type InitParams struct {
 	Directory string
 	Remote    string
+	Force     bool
 }
 
 func Init(p *InitParams) {
@@ -24,7 +25,7 @@ func Init(p *InitParams) {
 		reinitialize = true
 	}
 
-	if err := repo.Initialize(p.Directory, p.Remote, reinitialize); err != nil {
+	if err := repo.Initialize(p.Directory, p.Remote, reinitialize, p.Force); err != nil {
 		app.Fatal(err)
 	}
 	if reinitialize {

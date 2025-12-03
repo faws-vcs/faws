@@ -14,7 +14,7 @@ import (
 // Initialize a repository at the directory.
 // if reinitialize == true, you are allowed to refresh an existing repository with updated basics.
 // if remote_url != "", you create a reposito
-func Initialize(directory string, remote_url string, reinitialize bool) (err error) {
+func Initialize(directory string, remote_url string, reinitialize, force bool) (err error) {
 	if Exists(directory) && !reinitialize {
 		err = ErrInitializeCannotExist
 		return
@@ -25,6 +25,18 @@ func Initialize(directory string, remote_url string, reinitialize bool) (err err
 		err = os.Mkdir(directory, fs.DefaultPublicDirPerm)
 		if err != nil {
 			return
+		}
+	} else {
+		var dir_entries []os.DirEntry
+		dir_entries, err = os.ReadDir(directory)
+		if err != nil {
+			return
+		}
+		if len(dir_entries) > 0 {
+			if !reinitialize && !force {
+				err = ErrRepoCannotInitializeNonEmptyDirectory
+				return
+			}
 		}
 	}
 

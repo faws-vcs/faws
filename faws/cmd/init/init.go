@@ -18,6 +18,9 @@ var init_cmd = cobra.Command{
 }
 
 func init() {
+	flags := init_cmd.Flags()
+	flags.BoolP("force", "f", false, "initialize even if directory is non-empty")
+
 	root.RootCmd.AddCommand(&init_cmd)
 }
 
