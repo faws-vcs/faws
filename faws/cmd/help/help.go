@@ -3,8 +3,8 @@ package help
 import (
 	"bytes"
 	"fmt"
+	"os"
 
-	"github.com/faws-vcs/faws/faws/app"
 	"github.com/faws-vcs/faws/faws/cmd/helpinfo"
 	"github.com/spf13/cobra"
 )
@@ -52,5 +52,5 @@ func run_help_cmd(cmd *cobra.Command, args []string) {
 		fmt.Fprintln(&m)
 	}
 
-	app.Info(m.String())
+	os.Stdout.Write(m.Bytes())
 }

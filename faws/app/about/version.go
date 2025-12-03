@@ -1,13 +1,10 @@
 package about
 
 import (
-	"bytes"
 	"fmt"
+	"os"
 	"runtime/debug"
 	"text/tabwriter"
-
-	"github.com/faws-vcs/console"
-	"github.com/faws-vcs/faws/faws/app"
 )
 
 var (
@@ -35,12 +32,8 @@ func init() {
 type VersionParams struct{}
 
 func Version(params *VersionParams) {
-	console.Open()
-	defer console.Close()
-
-	var w bytes.Buffer
 	var tw tabwriter.Writer
-	tw.Init(&w, 0, 0, 8, ' ', 0)
+	tw.Init(os.Stdout, 0, 0, 8, ' ', 0)
 
 	fmt.Fprintf(&tw, "faws version:\t%s\n", version)
 	fmt.Fprintf(&tw, "commit:\t%s\n", commit)
@@ -51,6 +44,4 @@ func Version(params *VersionParams) {
 		fmt.Fprintf(&tw, "built by:\t%s\n", built_by)
 	}
 	tw.Flush()
-
-	app.Info(w.String())
 }

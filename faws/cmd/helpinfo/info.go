@@ -37,6 +37,14 @@ var Text = map[string]string{
 
 var Categories = []CategoryEntry{
 	{
+		"about",
+		"read information about your copy of Faws",
+		[]string{
+			"version",
+		},
+	},
+
+	{
 		"id",
 		"manage authorship identities",
 		[]string{
@@ -76,14 +84,6 @@ var Categories = []CategoryEntry{
 			"fsck",
 			"mass-revise",
 			"tag",
-		},
-	},
-
-	{
-		"about",
-		"get information about your copy of Faws",
-		[]string{
-			"version",
 		},
 	},
 }
