@@ -5,14 +5,17 @@ import (
 	"strings"
 )
 
-const illegal_commit_tag_characters = ` */:<>?\\|`
-
 var (
 	ErrCommitTagTooBig            = fmt.Errorf("faws/validate: commit tag is too long")
-	ErrCommitTagInvalidCharacters = fmt.Errorf("faws/validate: commit contains illegal characters '%s'", illegal_commit_tag_characters)
+	ErrCommitTagInvalidCharacters = fmt.Errorf("faws/validate: commit contains illegal characters")
 	ErrCommitTagCannotBeEmpty     = fmt.Errorf("faws/validate: commit tag cannot be empty")
 )
 
+// CommitTag returns an error if tag is invalid
+//
+// If the tag is empty, err = [ErrCommitTagCannotBeEmpty]
+// If the tag is too long, err = [ErrCommitTagTooBig]
+// If the tag contains illegal characters, err = [ErrCommitTagInvalidCharacters]
 func CommitTag(tag string) (err error) {
 	if tag == "" {
 		err = ErrCommitTagCannotBeEmpty
@@ -23,7 +26,8 @@ func CommitTag(tag string) (err error) {
 		err = ErrCommitTagTooBig
 		return
 	}
-	if strings.ContainsAny(tag, illegal_commit_tag_characters) {
+
+	if strings.ContainsFunc(tag, is_invalid_tag_character) {
 		err = ErrCommitTagInvalidCharacters
 		return
 	}

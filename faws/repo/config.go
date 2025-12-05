@@ -7,15 +7,21 @@ import (
 	"github.com/faws-vcs/faws/faws/fs"
 )
 
-const Version = 1
+const Format = 1
 
+// Config is the format for the "config" JSON file in the root of the repository
 type Config struct {
+	AppID string `json:"app_id"`
+	// The version of Faws
+	// This is purely diagnostic. Breaking changes should be demonstrated by RepositoryFormat
+	AppVersion string `json:"app_version"`
 	// The Faws repository version
-	Version uint8 `json:"faws_version"`
+	RepositoryFormat uint8 `json:"repository_format"`
 	// URL pointing to the original location of the repository
-	Remote string `json:"remote,omitempty"`
+	Origin string `json:"remote,omitempty"`
 }
 
+// ReadConfig reads a config at the filename
 func ReadConfig(filename string, config *Config) (err error) {
 	var data []byte
 	data, err = os.ReadFile(filename)
@@ -27,6 +33,7 @@ func ReadConfig(filename string, config *Config) (err error) {
 	return
 }
 
+// WriteConfig saves a config to the filename
 func WriteConfig(filename string, config *Config) (err error) {
 	var data []byte
 	data, err = json.Marshal(config)

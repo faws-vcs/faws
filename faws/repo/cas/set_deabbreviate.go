@@ -10,6 +10,10 @@ import (
 	"github.com/faws-vcs/faws/faws/validate"
 )
 
+// Deabbreviate expands a hash abbreviation string. It will attempt to disambiguate even the shortest possible hexadecimal string.
+// If the abbreviation is not hexadecimal, err will be [ErrAbbreviationNotHex]
+// If multiple candidates exist for an abbreviation, err will be [ErrAbbreviationAmbiguous]
+// If the abbreviation does not fit with any object in the Set, err will be [ErrObjectNotFound]
 func (set *Set) Deabbreviate(abbreviation string) (hash ContentID, err error) {
 	abbreviation = strings.ToLower(abbreviation)
 	if len(abbreviation) == 0 {

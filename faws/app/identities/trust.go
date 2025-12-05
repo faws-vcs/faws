@@ -7,10 +7,14 @@ import (
 	"github.com/faws-vcs/faws/faws/identity"
 )
 
+// RingTrust implements [github.com/faws-vcs/faws/faws/repo.Trust]
+//
+// It's a permissive trust mechanism by default, as it will always accept untrusted identities. It only violates trust when an external ID purports to have the same nametag as one already in the user's ring
 type RingTrust struct {
 	ring *identity.Ring
 }
 
+// NewRingTrust creates a new RingTrust using the user's ring, trusting on first use when there is no nametag conflict
 func NewRingTrust(ring *identity.Ring) (trust *RingTrust) {
 	trust = new(RingTrust)
 	trust.ring = ring

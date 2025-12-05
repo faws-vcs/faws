@@ -9,9 +9,15 @@ import (
 	"github.com/faws-vcs/faws/faws/repo/revision"
 )
 
+// CheckObjects checks a list of objects in the repo for consistency
+//
+// If id != cas.Nil, the ID is used as the root in a tree of objects, and all children are recursively checked for consistency.
+// If id == nil, each object is checked for consistency, including orphaned objects.
+// If purge == false, [event.NotifyCorruptedObject] is generated upon encountering an inconsistent or corrupt object.
+// If purge == true,  [event.NotifyRemovedCorruptedObject] is generated upon encountering an inconsistent or corrupt object, and the object is deleted.
 func (repo *Repository) CheckObjects(id cas.ContentID, purge bool) (err error) {
 	if id == cas.Nil {
-		repo.objects.List(func(id cas.ContentID) (err error) {
+		err = repo.objects.List(func(id cas.ContentID) (err error) {
 			var (
 				prefix cas.Prefix
 			)
@@ -40,7 +46,7 @@ func (repo *Repository) CheckObjects(id cas.ContentID, purge bool) (err error) {
 			}
 			return
 		})
-
+		return
 	}
 
 	var (
@@ -67,7 +73,6 @@ func (repo *Repository) CheckObjects(id cas.ContentID, purge bool) (err error) {
 		}
 
 		err = nil
-		return
 	}
 
 	if prefix == cas.Commit {

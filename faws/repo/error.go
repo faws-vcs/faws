@@ -21,5 +21,6 @@ var (
 	ErrCacheEntryCannotBeEmpty               = fmt.Errorf("faws/repo: a file can't be added to the cache without a name")
 	ErrCacheEntryNotFound                    = fmt.Errorf("faws/repo: a cache entry by that name was not found")
 	ErrLocalTagNotInRemote                   = fmt.Errorf("faws/repo: refusing to overwrite a tag pointing to a local-only commit, use --force to overwrite anyway")
-	ErrRepoCannotInitializeNonEmptyDirectory = fmt.Errorf("faws/repo: refusing to initialize a Faws repository within a non-empty directory, use -f, --force if you really want to do that")
+	ErrRepoCannotInitializeNonEmptyDirectory = fmt.Errorf("faws/repo: refusing to initialize a Faws repository within a non-empty directory, use -f, --force if you know what you're doing")
+	ErrPullNoOrigin                          = fmt.Errorf("faws/repo: you cannot pull into this repository without a remote origin")
 )

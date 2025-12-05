@@ -8,17 +8,23 @@ import (
 	"github.com/faws-vcs/faws/faws/timestamp"
 )
 
+// ListMode represents the option of displaying only public, or only secret identities, or both
 type ListMode uint8
 
 const (
+	// If ListPublic is set, public identities (identities from other users) are displayed
 	ListPublic ListMode = 1 << iota
+	// If ListSecret is set, secret (identities that you possess the secret key for) are displayed
 	ListSecret
+	// ListAll, all identities in the Ring are displayed
 	ListAll = ListPublic | ListSecret
 )
 
+// ListParams are the input parameters to the command "faws id ls", [List]
 type ListParams struct {
 	Verbose bool
-	Mode    ListMode
+	// Controls which identities are displayed to the user
+	Mode ListMode
 }
 
 func list_identity_entry(params *ListParams, entry *identity.RingEntry) {
@@ -55,6 +61,9 @@ func list_identity_entry(params *ListParams, entry *identity.RingEntry) {
 	app.Log("\n")
 }
 
+// List is the implementation of the command "faws id ls"
+//
+// It displays the contents of the user's identity ring, filtered by the [ListMode] in params.
 func List(params *ListParams) {
 	app.Open()
 	defer func() {

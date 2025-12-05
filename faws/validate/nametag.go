@@ -3,7 +3,6 @@ package validate
 import (
 	"fmt"
 	"strings"
-	"unicode"
 )
 
 var (
@@ -12,10 +11,7 @@ var (
 	ErrNametagInvalidCharacters          = fmt.Errorf("faws/validate: nametag contains invalid characters")
 )
 
-func is_invalid_character(r rune) bool {
-	return !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '.' || r == '_' || r == '-')
-}
-
+// Nametag returns an error if the nametag is invalid
 func Nametag(n string) (err error) {
 	if n == "" {
 		return
@@ -24,7 +20,7 @@ func Nametag(n string) (err error) {
 		err = ErrNametagTooLong
 		return
 	}
-	if strings.ContainsFunc(n, is_invalid_character) {
+	if strings.ContainsFunc(n, is_invalid_tag_character) {
 		err = ErrNametagInvalidCharacters
 		return
 	}

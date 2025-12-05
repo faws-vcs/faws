@@ -60,6 +60,15 @@ func (d *directory) URL() (s string) {
 }
 
 func open_directory(name string) (fs Fs, err error) {
+	if !filepath.IsAbs(name) {
+		var abs_path string
+		abs_path, err = filepath.Abs(name)
+		if err != nil {
+			err = nil
+		} else {
+			name = abs_path
+		}
+	}
 	d := new(directory)
 	d.name = name
 	fs = d

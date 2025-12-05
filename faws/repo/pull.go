@@ -172,14 +172,15 @@ func (repo *Repository) list_remote_tags(fs remote.Fs) (tags []string, err error
 	return
 }
 
+// Clone retrieves all information from the origin remote and saves it to the repository
 func (repo *Repository) Clone(force bool) (err error) {
-	if repo.config.Remote == "" {
-		err = fmt.Errorf("faws/repo: cannot clone with no remote")
+	if repo.config.Origin == "" {
+		err = ErrPullNoOrigin
 		return
 	}
 
 	var fs remote.Fs
-	fs, err = remote.Open(repo.config.Remote)
+	fs, err = remote.Open(repo.config.Origin)
 	if err != nil {
 		return
 	}
@@ -256,12 +257,12 @@ func (repo *Repository) deabbreviate_remote_hash(fs remote.Fs, ref string) (obje
 
 // Pull only objects associated with a tag or an abbreviated object hash
 func (repo *Repository) Pull(ref string, force bool) (err error) {
-	if repo.config.Remote == "" {
-		err = fmt.Errorf("faws/repo: cannot pull into a local repository")
+	if repo.config.Origin == "" {
+		err = ErrPullNoOrigin
 		return
 	}
 
-	fs, err := remote.Open(repo.config.Remote)
+	fs, err := remote.Open(repo.config.Origin)
 	if err != nil {
 		return
 	}
@@ -311,9 +312,10 @@ func (repo *Repository) Pull(ref string, force bool) (err error) {
 	return
 }
 
+// PullTags retrieves only the tags from the remote origin repository
 func (repo *Repository) PullTags(force bool) (err error) {
 	var fs remote.Fs
-	fs, err = remote.Open(repo.config.Remote)
+	fs, err = remote.Open(repo.config.Origin)
 	if err != nil {
 		return
 	}

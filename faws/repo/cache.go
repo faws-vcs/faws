@@ -24,6 +24,7 @@ type cache_index struct {
 	lazy_signatures []cache.LazySignature
 }
 
+// CacheIndex returns the current index
 func (repo *Repository) CacheIndex() (cache_index *cache.Index) {
 	cache_index = new(cache.Index)
 	for object_hash, references := range repo.index.cache_objects {
@@ -40,10 +41,12 @@ func (repo *Repository) CacheIndex() (cache_index *cache.Index) {
 	return
 }
 
+// CachedFiles returns the repository's list of index entries
 func (repo *Repository) CachedFiles() []cache.IndexEntry {
 	return repo.index.entries
 }
 
+// UncacheAll removes all files from the index and uncaches them
 func (repo *Repository) UncacheAll() (err error) {
 	if len(repo.index.cache_objects) == 0 {
 		repo.index.entries = nil
@@ -64,6 +67,7 @@ func (repo *Repository) UncacheAll() (err error) {
 	return
 }
 
+// ResetCache fully resets the index and removes cached index files
 func (repo *Repository) ResetCache() (err error) {
 	err = repo.UncacheAll()
 	if err != nil {
@@ -159,8 +163,10 @@ type cache_options struct {
 	lazy     bool
 }
 
+// A CacheOption can be used to add specific options to a cache operation
 type CacheOption func(*cache_options)
 
+// WithFileMode is a [CacheOption] that sets [revision.FileMode] of the cached files to mode
 func WithFileMode(mode revision.FileMode) CacheOption {
 	return func(c *cache_options) {
 		c.set_mode = true
@@ -168,6 +174,7 @@ func WithFileMode(mode revision.FileMode) CacheOption {
 	}
 }
 
+// WithLazy is a [CacheOption] that enables lazy-signatures for the cached files
 func WithLazy(lazy bool) CacheOption {
 	return func(c *cache_options) {
 		c.lazy = lazy
@@ -363,16 +370,26 @@ func (repo *Repository) cache_file(o *cache_options, path, origin string) (err e
 	return
 }
 
+// Cache caches a file and adds it to the index
 func (repo *Repository) Cache(path, origin string, options ...CacheOption) (err error) {
 	var o cache_options
 	for _, option := range options {
 		option(&o)
 	}
 
+	var notify_params event.NotifyParams
+	notify_params.Stage = event.StageCacheFiles
+	repo.notify(event.NotifyBeginStage, &notify_params)
+
 	err = repo.cache_file(&o, path, origin)
+
+	notify_params.Success = err == nil
+	repo.notify(event.NotifyCompleteStage, &notify_params)
+
 	return
 }
 
+// Cache uncaches a file and removes it from the index
 func (repo *Repository) Uncache(path string) (err error) {
 	i := repo.find_cache_index_entry(path)
 	if i < len(repo.index.entries) && repo.index.entries[i].Path == path {
@@ -444,6 +461,7 @@ func (repo *Repository) write_index() (err error) {
 	return
 }
 
+// CacheSetFileMode changes the filemode of a cached file within the index
 func (repo *Repository) CacheSetFileMode(path string, mode revision.FileMode) (err error) {
 	i := repo.find_cache_index_entry(path)
 	if i < len(repo.index.entries) && repo.index.entries[i].Path == path {

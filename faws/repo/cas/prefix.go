@@ -2,8 +2,8 @@ package cas
 
 import "encoding/hex"
 
-// A Prefix helps clarify the purpose of each object
-// for instance, you can discover the st
+// A Prefix helps clarify the purpose of each object.
+// The presence of prefixes allows for many tricks to be performed
 type Prefix [4]byte
 
 var (
@@ -17,12 +17,17 @@ var (
 	Commit = Prefix{'E', 'D', 'I', 'T'}
 )
 
+// String returns an ordinary name for each Prefix type
+// 1. File = "file"
+// 2. Part = "part"
+// 3. Tree = "tree"
+// 3. Commit = "commit"
 func (p Prefix) String() string {
 	switch p {
 	case File:
 		return "file"
 	case Part:
-		return "filepart"
+		return "part"
 	case Tree:
 		return "tree"
 	case Commit:

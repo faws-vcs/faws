@@ -7,13 +7,17 @@ import (
 	"github.com/faws-vcs/faws/faws/repo/cas"
 )
 
+// CatFileParams are the input parameters to the command "faws cat-file", [CatFile]
 type CatFileParams struct {
+	// The directory containing the Faws repository
 	Directory   string
-	Prefix      string
 	Ref         string
 	PrettyPrint bool
 }
 
+// CatFile implements the command "faws cat-file"
+//
+// It will load an object, and display its contents to stdout. If -p, --pretty-print is passed, it will be formatted and not spit out raw binary data.
 func CatFile(params *CatFileParams) {
 	app.Open()
 	defer func() {
@@ -32,25 +36,6 @@ func CatFile(params *CatFileParams) {
 	prefix, object, err := Repo.LoadObject(hash)
 	if err != nil {
 		app.Fatal(err)
-	}
-
-	if params.Prefix != "" {
-		var proper_prefix cas.Prefix
-		switch params.Prefix {
-		case "tree":
-			proper_prefix = cas.Tree
-		case "commit":
-			proper_prefix = cas.Commit
-		case "file":
-			proper_prefix = cas.File
-		case "part":
-			proper_prefix = cas.Part
-		default:
-			app.Fatal("unknown prefix")
-		}
-		if proper_prefix != prefix {
-			app.Fatal("bad file")
-		}
 	}
 
 	if params.PrettyPrint {

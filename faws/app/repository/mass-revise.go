@@ -12,6 +12,7 @@ import (
 	"github.com/faws-vcs/faws/faws/repo/revision"
 )
 
+// MassReviseParams are the input parameters to the command "faws mass-revise", [MassRevise]
 type MassReviseParams struct {
 	Directory string
 	// if true, remove old commits and tree objects
@@ -120,6 +121,9 @@ func rewrite_tag(params *MassReviseParams, tag string) {
 	app.Info("rewrite", tag, commit_hash, "=>", new_commit_hash)
 }
 
+// MassRevise is the implementation of the command "faws mass-revise"
+//
+// It edits each tag, replacing commits with fixed versions based on the user's match conditions
 func MassRevise(params *MassReviseParams) {
 	app.Open()
 	defer func() {

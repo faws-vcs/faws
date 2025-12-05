@@ -11,7 +11,7 @@ import (
 )
 
 var cat_file_cmd = cobra.Command{
-	Use:     "cat-file [type] object",
+	Use:     "cat-file object",
 	Short:   helpinfo.Text["cat-file"],
 	GroupID: "repo",
 	Run:     run_cat_file_cmd,
@@ -24,18 +24,12 @@ func init() {
 }
 
 func run_cat_file_cmd(cmd *cobra.Command, args []string) {
-	if len(args) != 2 && len(args) != 1 {
+	if len(args) != 1 {
 		cmd.Help()
 		return
 	}
 
 	object := args[len(args)-1]
-
-	object_type := ""
-
-	if len(args) == 2 {
-		object_type = args[0]
-	}
 
 	pretty_print, err := cmd.Flags().GetBool("pretty-print")
 	if err != nil {
@@ -51,7 +45,6 @@ func run_cat_file_cmd(cmd *cobra.Command, args []string) {
 
 	var params = repository.CatFileParams{
 		Directory:   working_directory,
-		Prefix:      object_type,
 		Ref:         object,
 		PrettyPrint: pretty_print,
 	}

@@ -13,6 +13,7 @@ var (
 	ErrCacheEntryCannotBeEmpty = fmt.Errorf("faws/repo/cache: cache entry cannot be empty")
 )
 
+// An IndexEntry associates a path string with an object hash and a filemode
 type IndexEntry struct {
 	// The path inside the repository
 	Path string
@@ -22,6 +23,8 @@ type IndexEntry struct {
 	Mode revision.FileMode
 }
 
+// A CacheObject is a handle to a loose object, or an object that is not necessarily part of the repository yet, but exists inside the cache or [cas.Set]
+// Therefore it may be freed from the repository if the number of references in the index reaches 0
 type CacheObject struct {
 	// FILE or PART hash
 	Hash cas.ContentID
@@ -29,6 +32,9 @@ type CacheObject struct {
 	References uint32
 }
 
+// A LazySignature memoizes the intensive process of scanning a file by exploiting format specific features.
+// For instance, if you hash only the file size + table of contents of a large archive file, you may be certain
+// that the hash acts as a unique signature that will not overlap with any other archive of the same format
 type LazySignature struct {
 	// The lazy signature of the file
 	// These can't repeat, they control how the list is sorted.
@@ -38,8 +44,7 @@ type LazySignature struct {
 	File cas.ContentID
 }
 
-// Index lists pending changes
-// to be written by the next commit
+// Index lists pending changes to be written by the next commit
 type Index struct {
 	CacheObjects []CacheObject
 	Entries      []IndexEntry
@@ -47,6 +52,7 @@ type Index struct {
 	LazySignatures []LazySignature
 }
 
+// MarshalIndex serializes the Index to a slice of bytes
 func MarshalIndex(index *Index) (data []byte, err error) {
 	var cache_objects_count [4]byte
 	binary.LittleEndian.PutUint32(cache_objects_count[:], uint32(len(index.CacheObjects)))
@@ -89,6 +95,7 @@ func MarshalIndex(index *Index) (data []byte, err error) {
 	return
 }
 
+// UnmarshalIndex deserializes the slice of bytes into the Index
 func UnmarshalIndex(data []byte, index *Index) (err error) {
 	field := data
 

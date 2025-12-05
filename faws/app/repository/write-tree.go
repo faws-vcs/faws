@@ -4,10 +4,14 @@ import (
 	"github.com/faws-vcs/faws/faws/app"
 )
 
+// WriteTreeParams are the input parameters to the command "faws write-tree", [WriteTree]
 type WriteTreeParams struct {
 	Directory string
 }
 
+// WriteTree is the implementation of the command "faws write-tree"
+//
+// It creates a tree object (which may already exist) using files the user added index
 func WriteTree(params *WriteTreeParams) {
 	app.Open()
 	defer func() {

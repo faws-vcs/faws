@@ -71,6 +71,7 @@ type Tag struct {
 	Hash cas.ContentID
 }
 
+// Tags returns a list of commit tag names and their associated commit hashes
 func (repo *Repository) Tags() (tags []Tag, err error) {
 	path := filepath.Join(repo.directory, "tags")
 	var items []os.DirEntry
@@ -93,5 +94,11 @@ func (repo *Repository) Tags() (tags []Tag, err error) {
 			}
 		}
 	}
+	return
+}
+
+// Tag returns a commit hash associated with a commit tag name
+func (repo *Repository) Tag(name string) (commit_hash cas.ContentID, err error) {
+	commit_hash, err = repo.read_tag(name)
 	return
 }

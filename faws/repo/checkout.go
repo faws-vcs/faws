@@ -121,6 +121,9 @@ func (repo *Repository) checkout_commit(commit_hash cas.ContentID, dest string, 
 	return repo.checkout_tree(commit_info.Tree, dest, overwrite)
 }
 
+// Checkout exports an object (most commonly, a commit) to a destination on the host filesystem.
+//
+// If overwrite == true, existing files in the path are destroyed and no error is returned.
 func (repo *Repository) Checkout(object_hash cas.ContentID, dest string, overwrite bool) (err error) {
 	var (
 		prefix cas.Prefix

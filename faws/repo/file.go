@@ -66,6 +66,7 @@ func (r *file_reader) Close() (err error) {
 	return
 }
 
+// OpenFile returns an [io.ReadCloser] for a file in the repository
 func (repo *Repository) OpenFile(file_hash cas.ContentID) (file io.ReadCloser, err error) {
 	reader := new(file_reader)
 	reader.repo = repo

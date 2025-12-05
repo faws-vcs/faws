@@ -8,6 +8,7 @@ import (
 	"github.com/faws-vcs/faws/faws/fs"
 )
 
+// Set is the set of all objects held by the repository and index
 type Set struct {
 	// the location of the cas.Set
 	directory string

@@ -11,7 +11,7 @@ import (
 )
 
 var tag_cmd = cobra.Command{
-	Use:     "tag",
+	Use:     "tag [name]",
 	Short:   helpinfo.Text["tag"],
 	GroupID: "repo",
 	Run:     run_tag_cmd,
@@ -31,6 +31,9 @@ func run_tag_cmd(cmd *cobra.Command, args []string) {
 
 	var params = repository.ListTagsParams{
 		Directory: working_directory,
+	}
+	if len(args) > 0 {
+		params.Name = args[0]
 	}
 	repository.ListTags(&params)
 }

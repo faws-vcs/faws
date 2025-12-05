@@ -3,10 +3,11 @@ package repo
 import (
 	"github.com/faws-vcs/faws/faws/repo/cache"
 	"github.com/faws-vcs/faws/faws/repo/cas"
+	"github.com/faws-vcs/faws/faws/repo/event"
 	"github.com/faws-vcs/faws/faws/repo/revision"
 )
 
-// Returns the Tree for a tree or commit object
+// Tree returns the tree identified by a tree hash, or if object_hash refers to a commit, returns the tree associated with that commit
 func (repo *Repository) Tree(object_hash cas.ContentID) (tree *revision.Tree, err error) {
 	var (
 		object []byte
@@ -54,14 +55,19 @@ func (repo *Repository) load_tree(tree_hash cas.ContentID) (tree *revision.Tree,
 	return
 }
 
-// create a tree object from the current index
+// Write creates a tree object using the current index
 func (repo *Repository) WriteTree() (tree_hash cas.ContentID, err error) {
+	var notify_params event.NotifyParams
+	notify_params.Stage = event.StageWriteTree
+	repo.notify(event.NotifyBeginStage, &notify_params)
+
 	var cache_tree cache.Tree
 	if err = cache_tree.Build(repo.CacheIndex()); err != nil {
+		repo.notify(event.NotifyCompleteStage, &notify_params)
 		return
 	}
-	if tree_hash, err = cache_tree.Store(&repo.objects); err != nil {
-		return
-	}
+	tree_hash, err = cache_tree.Store(&repo.objects)
+	notify_params.Success = err == nil
+	repo.notify(event.NotifyCompleteStage, &notify_params)
 	return
 }

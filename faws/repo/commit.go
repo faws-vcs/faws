@@ -54,7 +54,7 @@ func (repo *Repository) check_commit(revision_hash cas.ContentID) (author identi
 	return
 }
 
-// CommitTree commit a previously written tree
+// CommitTree commits a previously existing tree object and returns the commit hash
 func (repo *Repository) CommitTree(signing *identity.Pair, info *revision.CommitInfo) (commit_hash cas.ContentID, err error) {
 	// ensure that commit info is well-formed
 	if err = validate.CommitTag(info.Tag); err != nil {
@@ -115,6 +115,7 @@ func (repo *Repository) CommitTree(signing *identity.Pair, info *revision.Commit
 	return
 }
 
+// GetCommit returns the information for a valid commit, or an error if it is missing or could not be verified
 func (repo *Repository) GetCommit(commit_hash cas.ContentID) (author identity.ID, info *revision.CommitInfo, err error) {
 	author, info, err = repo.check_commit(commit_hash)
 	return

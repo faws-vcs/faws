@@ -19,6 +19,7 @@ var (
 	ErrTreeEmpty                = fmt.Errorf("faws/cache: tree has no entries")
 )
 
+// File is a temporary structure used when converting the index into trees
 type File struct {
 	Prefix cas.Prefix
 	Name   string
@@ -27,12 +28,13 @@ type File struct {
 	File   cas.ContentID
 }
 
-// Tree is used when a commit is about to be made
+// Tree is a temporary structure used when converting the index into trees
+// It is useful since the index format is flat and non-hierarchical, which repository trees must be
 type Tree struct {
 	Files []File
 }
 
-// Store the cache tree inside the CAS of a repository
+// Store recursively converts the temporary [Tree] structure into actual [revision.Tree] objects
 func (cache_tree *Tree) Store(objects *cas.Set) (root cas.ContentID, err error) {
 	var revision_tree revision.Tree
 	revision_tree.Entries = make([]revision.TreeEntry, 0, len(cache_tree.Files))
@@ -82,6 +84,7 @@ func (cache_tree *Tree) Store(objects *cas.Set) (root cas.ContentID, err error) 
 	return
 }
 
+// converts flat index entries into a hierarchical temporary structure
 func (tree *Tree) build_index_entry(linked_file *IndexEntry) (err error) {
 	var (
 		current_tree *Tree = tree
@@ -141,7 +144,7 @@ func (tree *Tree) build_index_entry(linked_file *IndexEntry) (err error) {
 	return
 }
 
-// Apply cached changes
+// Build organizes the flat [Index] entries into a hierarchical [Tree] structure
 func (tree *Tree) Build(index *Index) (err error) {
 	for i := range index.Entries {
 		if err = tree.build_index_entry(&index.Entries[i]); err != nil {

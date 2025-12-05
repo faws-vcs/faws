@@ -8,12 +8,17 @@ import (
 	"github.com/faws-vcs/faws/faws/repo"
 )
 
+// CloneParams are the input parameters to the command "faws clone", [Clone]
 type CloneParams struct {
 	Directory string
 	Remote    string
 	Force     bool
 }
 
+// Clone is the implementation of the command "faws clone"
+//
+// It duplicates a remote repository into the current directory, or a named external directory.
+// If Force == true, it will clone even if the directory is non-empty or the repository already exists.
 func Clone(params *CloneParams) {
 	app.Open()
 	defer func() {
@@ -47,4 +52,6 @@ func Clone(params *CloneParams) {
 	if err := Repo.Clone(true); err != nil {
 		app.Fatal(err)
 	}
+
+	Close()
 }

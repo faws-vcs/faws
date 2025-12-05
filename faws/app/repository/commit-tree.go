@@ -7,11 +7,15 @@ import (
 	"github.com/faws-vcs/faws/faws/validate"
 )
 
+// CommitTreeParams are the input parameters to the command "faws commit-tree", [CommitTree]
 type CommitTreeParams struct {
 	CommitParams
 	Tree string
 }
 
+// CommitTree is the implementation of the command "faws commit-tree"
+//
+// It creates a new commit using an already-existing tree, instead of using the index to write a new tree
 func CommitTree(params *CommitTreeParams) {
 	app.Open()
 	defer func() {

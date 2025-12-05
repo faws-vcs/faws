@@ -7,7 +7,7 @@ import (
 	"github.com/faws-vcs/faws/faws/fs"
 )
 
-// Attempt to store a segment of data, returning the associated ContentID.
+// Store attempts to store data, returning the associated ContentID.
 func (set *Set) Store(prefix Prefix, data []byte) (new bool, id ContentID, err error) {
 	id = hash_content(prefix, data)
 	var (

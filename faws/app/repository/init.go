@@ -5,13 +5,16 @@ import (
 	"github.com/faws-vcs/faws/faws/repo"
 )
 
-// Create a new repository in the current directory.
+// InitParams are the input parameters to the command "faws init", [Init]
 type InitParams struct {
 	Directory string
 	Remote    string
 	Force     bool
 }
 
+// Init is the implementation of the command "faws init"
+//
+// It initializes a new repository in an empty directory. If Force == true, the directory can also be non-empty.
 func Init(p *InitParams) {
 	app.Open()
 	defer func() {

@@ -7,6 +7,7 @@ import (
 	"strconv"
 )
 
+// Locked returns an error if the repository at directory is locked
 func Locked(directory string) (err error) {
 	// check to see if repository is locked
 	var pid int

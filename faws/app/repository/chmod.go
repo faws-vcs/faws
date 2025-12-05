@@ -5,6 +5,7 @@ import (
 	"github.com/faws-vcs/faws/faws/repo/revision"
 )
 
+// ChmodParams are the input parameters to the command "faws chmod", [Chmod]
 type ChmodParams struct {
 	// The directory of the repository
 	Directory string
@@ -13,6 +14,9 @@ type ChmodParams struct {
 	Mode revision.FileMode
 }
 
+// Chmod is the implementation of the command "faws chmod"
+//
+// It changes the file mode (namely whether a file is executable or not) of a file in the index
 func Chmod(params *ChmodParams) {
 	app.Open()
 	defer func() {

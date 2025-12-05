@@ -1,15 +1,15 @@
 package remote
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/faws-vcs/faws/faws/app/about"
 	"golang.org/x/net/html"
 )
-
-const user_agent = "Faws/0.1"
 
 type web_server struct {
 	base_url url.URL
@@ -96,7 +96,7 @@ func (ws *web_server) Pull(name string) (file io.ReadCloser, err error) {
 		return
 	}
 
-	request.Header.Set("User-Agent", user_agent)
+	request.Header.Set("User-Agent", fmt.Sprintf("Faws/%s", about.GetVersionString()))
 
 	response, err = ws.client.Do(request)
 	if err != nil {

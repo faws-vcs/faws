@@ -5,7 +5,6 @@ import (
 
 	_ "github.com/faws-vcs/faws/faws/cmd/id/create"
 	_ "github.com/faws-vcs/faws/faws/cmd/id/ls"
-	_ "github.com/faws-vcs/faws/faws/cmd/id/primary"
 	_ "github.com/faws-vcs/faws/faws/cmd/id/rm"
 	_ "github.com/faws-vcs/faws/faws/cmd/id/set"
 

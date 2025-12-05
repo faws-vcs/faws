@@ -6,6 +6,7 @@ import (
 	"github.com/faws-vcs/faws/faws/repo/revision"
 )
 
+// ListTreeParams are the input parameters to the command "faws ls-tree", [ListTree]
 type ListTreeParams struct {
 	Directory string
 	Ref       string
@@ -31,6 +32,9 @@ func list_tree_object(recurse bool, tree *revision.Tree, path string) {
 	}
 }
 
+// ListTree is the implementation of the command "faws ls-tree"
+//
+// It enumerates each entry in a tree object. If Recurse == true, each sub-tree is also enumerated, and so on.
 func ListTree(params *ListTreeParams) {
 	app.Open()
 	defer func() {

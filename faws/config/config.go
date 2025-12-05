@@ -7,11 +7,14 @@ import (
 	"github.com/faws-vcs/faws/faws/identity"
 )
 
+// Configuration represents various Faws configuration files, including
+// 1. the user's [identity.Ring]
 type Configuration struct {
 	directory string
 	ring      identity.Ring
 }
 
+// Open loads various local configuration files
 func (config *Configuration) Open(directory string) (err error) {
 	// Ensure directory exists
 	if _, stat_err := os.Stat(directory); stat_err != nil {
@@ -34,6 +37,7 @@ func (config *Configuration) Open(directory string) (err error) {
 	return
 }
 
+// Close saves changes to various local configuration files
 func (config *Configuration) Close() (err error) {
 	if err = identity.WriteRing(config.RingPath(), &config.ring); err != nil {
 		return

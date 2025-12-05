@@ -6,6 +6,7 @@ import (
 	"github.com/faws-vcs/faws/faws/app"
 )
 
+// RemoveFileParams are the input parameters to the command "faws rm", [RemoveFile]
 type RemoveFileParams struct {
 	// The directory of the repository
 	Directory string
@@ -15,6 +16,9 @@ type RemoveFileParams struct {
 	Path string
 }
 
+// RemoveFile is the implementation of the command "faws rm"
+//
+// It removes a file or directory at Path from the index
 func RemoveFile(params *RemoveFileParams) {
 	app.Open()
 	defer func() {

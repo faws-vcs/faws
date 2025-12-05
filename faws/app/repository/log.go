@@ -14,6 +14,7 @@ import (
 	"github.com/faws-vcs/faws/faws/timestamp"
 )
 
+// ViewLogParams are the input parameters to the command "faws log", [ViewLog]
 type ViewLogParams struct {
 	Directory string
 	Ref       string
@@ -65,6 +66,9 @@ func display_commit(commit_hash cas.ContentID) {
 	tw.Flush()
 }
 
+// ViewLog is the implementation of the command "faws log"
+//
+// It views the history of a tag, including the latest commit and each parent leading back to the initial commit
 func ViewLog(params *ViewLogParams) {
 	app.Open()
 	defer func() {

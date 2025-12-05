@@ -7,14 +7,15 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/faws-vcs/faws/faws/app/about"
 	"github.com/faws-vcs/faws/faws/fs"
 	"github.com/faws-vcs/faws/faws/repo/remote"
 )
 
 // Initialize a repository at the directory.
 // if reinitialize == true, you are allowed to refresh an existing repository with updated basics.
-// if remote_url != "", you create a reposito
-func Initialize(directory string, remote_url string, reinitialize, force bool) (err error) {
+// if origin_url != "", you start to pull repository information from the remote repository at origin_url
+func Initialize(directory string, origin_url string, reinitialize, force bool) (err error) {
 	if Exists(directory) && !reinitialize {
 		err = ErrInitializeCannotExist
 		return
@@ -43,7 +44,9 @@ func Initialize(directory string, remote_url string, reinitialize, force bool) (
 	var remote_fs remote.Fs
 	// create config
 	var config Config
-	config.Version = 1
+	config.AppID = "faws"
+	config.AppVersion = about.GetVersionString()
+	config.RepositoryFormat = Format
 
 	config_name := filepath.Join(directory, "config")
 	if _, err = os.Stat(config_name); err == nil {
@@ -53,9 +56,10 @@ func Initialize(directory string, remote_url string, reinitialize, force bool) (
 		}
 	}
 
-	// Retrieve the remote's config
-	if remote_url != "" {
-		remote_fs, err = remote.Open(remote_url)
+	// Detect the format of the repository by reading the remote config
+	// The rest of the config is not important to us (for now)
+	if origin_url != "" {
+		remote_fs, err = remote.Open(origin_url)
 		if err != nil {
 			return
 		}
@@ -65,14 +69,15 @@ func Initialize(directory string, remote_url string, reinitialize, force bool) (
 			err = fmt.Errorf("faws/repo: remote repository does not exist")
 			return
 		}
-		config = Config{}
+		var remote_config Config
 		d := json.NewDecoder(config_file)
-		err = d.Decode(&config)
+		err = d.Decode(&remote_config)
 		if err != nil {
 			return
 		}
-
-		config.Remote = remote_fs.URL()
+		config.RepositoryFormat = remote_config.RepositoryFormat
+		// cleaned URL (for instance, if origin_url was a filepath, now it has file: URI)
+		config.Origin = remote_fs.URL()
 	}
 
 	err = WriteConfig(config_name, &config)

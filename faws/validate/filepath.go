@@ -13,7 +13,7 @@ var (
 	ErrFilePathEmpty             = fmt.Errorf("faws/validate: filepath is empty")
 )
 
-// Validate a single file
+// FileName returns an error if the filename is not valid
 func FileName(filename string) (err error) {
 	if filename == "" {
 		err = ErrFileNameEmpty
@@ -38,6 +38,7 @@ func FileName(filename string) (err error) {
 	return
 }
 
+// FilePath returns an error if the filepath is not valid
 func FilePath(filepath string) (err error) {
 	if filepath == "" {
 		err = ErrFilePathEmpty

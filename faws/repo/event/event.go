@@ -2,6 +2,7 @@ package event
 
 import "github.com/faws-vcs/faws/faws/repo/cas"
 
+// A Notification signifies different types of repository events
 type Notification uint8
 
 const (
@@ -22,6 +23,8 @@ const (
 	NotifyCompleteStage
 )
 
+// A Stage represents a phase of operations within the repository, typically one that can take quite a long time.
+// BeginStage and CompleteStage can be relayed to your user interface to give the user an idea of what is happening
 type Stage uint8
 
 const (
@@ -34,6 +37,8 @@ const (
 	StagePullObjects
 )
 
+// NotifyParams are extra information parameters shared along with the Notification
+// There is a lot of overlap, so the same fields are used.
 type NotifyParams struct {
 	Stage  Stage
 	Prefix cas.Prefix
@@ -45,8 +50,10 @@ type NotifyParams struct {
 	// Path, Tag
 	Name1 string
 	// Origin
-	Name2   string
+	Name2 string
+	// CompleteStage
 	Success bool
 }
 
+// A NotifyFunc can be supplied to repo.Repository.Open to get notifications about the repository's actions
 type NotifyFunc func(n Notification, params *NotifyParams)

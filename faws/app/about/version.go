@@ -29,8 +29,17 @@ func init() {
 	}
 }
 
+// VersionParams are the input parameters to the "faws version" command [Version]
 type VersionParams struct{}
 
+// Version is the implementation of the "faws version" command
+//
+// It displays information about the version of Faws currently being used, such as:
+//
+//	version     (git tag, provided by GoReleaser)
+//	commit hash (either provided by GoReleaser or by Go debug.BuildInfo)
+//	build date  (provided by GoReleaser)
+//	built by    (go or goreleaser)
 func Version(params *VersionParams) {
 	var tw tabwriter.Writer
 	tw.Init(os.Stdout, 0, 0, 8, ' ', 0)
@@ -44,4 +53,10 @@ func Version(params *VersionParams) {
 		fmt.Fprintf(&tw, "built by:\t%s\n", built_by)
 	}
 	tw.Flush()
+}
+
+// GetVersionString returns Faws's version tag  (included by Goreleaser), or "dev" if it was built with only Go
+func GetVersionString() (s string) {
+	s = version
+	return
 }

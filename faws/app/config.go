@@ -8,8 +8,10 @@ import (
 	"github.com/faws-vcs/faws/faws/config"
 )
 
+// The user's local Faws configuration (not accessible until [Open] is called)
 var Configuration config.Configuration
 
+// Opens the console, and loads the user's local Faws configuration
 func Open() {
 	console.Open()
 
@@ -29,6 +31,7 @@ func Open() {
 
 }
 
+// Close terminates the program and saves any changes made to the configuration
 func Close() {
 	if err := Configuration.Close(); err != nil {
 		Fatal(err)

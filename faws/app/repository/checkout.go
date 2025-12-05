@@ -2,6 +2,7 @@ package repository
 
 import "github.com/faws-vcs/faws/faws/app"
 
+// CheckoutParams are the input parameters to the command "faws checkout", [Checkout]
 type CheckoutParams struct {
 	Directory   string
 	Ref         string
@@ -9,6 +10,9 @@ type CheckoutParams struct {
 	Overwrite   bool
 }
 
+// Checkout is the implementation of the command "faws checkout"
+//
+// It takes in a ref and exports its content to a given destination file path.
 func Checkout(params *CheckoutParams) {
 	app.Open()
 	defer func() {

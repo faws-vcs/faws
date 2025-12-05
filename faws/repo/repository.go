@@ -24,7 +24,7 @@ type Repository struct {
 
 type Option func(*Repository)
 
-// Open an existing Faws repository
+// Open opens an existing Faws repository
 func (repo *Repository) Open(directory string, options ...Option) (err error) {
 	if !Exists(directory) {
 		err = ErrRepoNotExist
@@ -62,6 +62,7 @@ func (repo *Repository) Open(directory string, options ...Option) (err error) {
 	return
 }
 
+// Close saves changes made to the repository and releases its resources
 func (repo *Repository) Close() (err error) {
 	if err = repo.write_index(); err != nil {
 		return

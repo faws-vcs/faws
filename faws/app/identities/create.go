@@ -5,10 +5,16 @@ import (
 	"github.com/faws-vcs/faws/faws/identity"
 )
 
+// CreateParams are the input parameters to the command "faws id create", [Create]
 type CreateParams struct {
 	Attributes identity.Attributes
 }
 
+// Create is the implementation of the command "faws id create"
+//
+// It generates a new signing identity using the user's provided [identity.Attributes].
+//
+// This new identity becomes the primary if there is not already a primary.
 func Create(params *CreateParams) {
 	app.Open()
 	defer func() {

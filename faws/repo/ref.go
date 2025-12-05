@@ -12,6 +12,7 @@ var (
 	ErrRefNotFound = fmt.Errorf("faws/repo: ref not found")
 )
 
+// ParseRef returns a hash from a string, which may be either an [abbreviated] hexadecimal object hash, or a commit tag
 func (repo *Repository) ParseRef(ref string) (hash cas.ContentID, err error) {
 	ref_is_valid_hex := validate.Hex(ref)
 

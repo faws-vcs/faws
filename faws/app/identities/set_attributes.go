@@ -6,6 +6,7 @@ import (
 	"github.com/faws-vcs/faws/faws/validate"
 )
 
+// SetAttributesParams are the input parameters to to the command "faws id set", [SetAttributes]
 type SetAttributesParams struct {
 	ID string
 
@@ -19,6 +20,9 @@ type SetAttributesParams struct {
 	Attributes identity.Attributes
 }
 
+// SetAttributes is the implementation of the "faws id set" command
+//
+// For each "Set" boolean in [SetAttributesParams], it will set the corresponding attribute for the named secret identity.
 func SetAttributes(params *SetAttributesParams) {
 	app.Open()
 	defer func() {
@@ -27,7 +31,7 @@ func SetAttributes(params *SetAttributesParams) {
 
 	ring := app.Configuration.Ring()
 
-	id, err := app.Configuration.Ring().Deabbreviate(params.ID)
+	id, err := ring.Deabbreviate(params.ID)
 	if err != nil {
 		app.Fatal(err)
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/faws-vcs/faws/faws/validate"
 )
 
+// CommitParams are the input parameters to the function "faws commit"
 type CommitParams struct {
 	Directory  string
 	TreeDate   int64
@@ -16,6 +17,9 @@ type CommitParams struct {
 	Sign       string
 }
 
+// Commit is the implementation of the command "faws commit"
+//
+// It creates a new tree using files added to the index, and a new commit using that tree
 func Commit(params *CommitParams) {
 	app.Open()
 	defer func() {

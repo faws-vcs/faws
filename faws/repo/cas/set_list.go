@@ -6,8 +6,10 @@ import (
 	"path/filepath"
 )
 
+// ListFunc is a callback for enumerating objects in the repository
 type ListFunc func(id ContentID) (err error)
 
+// List will enumerate all objects in the Set using the supplied [ListFunc] callback
 func (set *Set) List(fn ListFunc) (err error) {
 	var id ContentID
 	var buckets []os.DirEntry

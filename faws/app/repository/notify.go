@@ -16,6 +16,8 @@ var (
 	stages_text = map[event.Stage]string{
 		event.StagePullObjects: "Retrieve objects",
 		event.StagePullTags:    "Retrieve tags",
+		event.StageCacheFiles:  "Cache files",
+		event.StageWriteTree:   "Write tree",
 	}
 
 	scrn activity_screen
@@ -88,7 +90,9 @@ func notify(ev event.Notification, params *event.NotifyParams) {
 
 	switch ev {
 	case event.NotifyCacheFile:
-		app.Info("caching", params.Name1, params.Name2)
+		if scrn.verbose {
+			app.Info("caching", params.Name1, params.Name2)
+		}
 	case event.NotifyCacheUsedLazySignature:
 		app.Info("using precached file (--lazy)", params.Name1, params.Name2)
 	case event.NotifyPullTag:
@@ -149,8 +153,8 @@ func render_activity_screen(hud *console.Hud) {
 		var stage_text console.Text
 		switch stage.state {
 		case 0:
-			stage_text.Add(message, console.BrightBlue, 0)
 			stage_text.Stylesheet.Width = len(message)
+			stage_text.Add(message, console.BrightBlue, 0)
 			hud.Line(&stage_text, &spinner)
 		case 1:
 			stage_text.Stylesheet.Width = len(message) + 1

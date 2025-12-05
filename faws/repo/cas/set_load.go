@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-// Attempt to load the corresponding data segment for a ContentID.
+// Load attempts to load the corresponding content for a ContentID.
 func (set *Set) Load(id ContentID) (prefix Prefix, data []byte, err error) {
 	// AABBCCDDEEFF => cas_set/aa/bb/ccddeeff
 	var path string
