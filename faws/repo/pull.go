@@ -77,7 +77,7 @@ func (repo *Repository) fetch_object(fs remote.Fs, object_hash cas.ContentID) (p
 		var notify_params event.NotifyParams
 		notify_params.Prefix = prefix
 		notify_params.Object1 = object_hash
-		notify_params.Count = len(object_data) - 4
+		notify_params.Count = int64(len(object_data) - 4)
 		repo.notify(event.NotifyPullObject, &notify_params)
 	} else if err != nil {
 		return
@@ -196,7 +196,7 @@ func (repo *Repository) Clone(force bool) (err error) {
 	}
 
 	var tags_in_queue event.NotifyParams
-	tags_in_queue.Count = len(tags)
+	tags_in_queue.Count = int64(len(tags))
 	repo.notify(event.NotifyTagQueueCount, &tags_in_queue)
 
 	tag_commit_hashes := make([]cas.ContentID, len(tags))

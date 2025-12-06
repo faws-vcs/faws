@@ -1,10 +1,6 @@
 package repository
 
 import (
-	"os"
-	"os/signal"
-	"syscall"
-
 	"github.com/faws-vcs/faws/faws/app"
 	"github.com/faws-vcs/faws/faws/repo"
 	"github.com/faws-vcs/faws/faws/repo/revision"
@@ -40,16 +36,18 @@ func AddFile(params *AddFileParams) {
 		app.Fatal(err)
 	}
 
-	// Graceful shutdown in event of Ctrl-C is crucial to not corrupt the index
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		app.Warning("'faws add' was rudely interrupted.")
-		app.Warning("you may want to 'faws reset' as continuing may have undesirable effects")
-		Close()
-		app.Close()
-	}()
+	// // Graceful shutdown in event of Ctrl-C is crucial to not corrupt the index
+	// c := make(chan os.Signal, 1)
+	// signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	// go func() {
+	// 	for {
+	// 		<-c
+	// 	}
+	// 	// app.Warning("'faws add' was rudely interrupted.")
+	// 	// app.Warning("you may want to 'faws reset' as continuing may have undesirable effects")
+	// 	// Close()
+	// 	// app.Close()
+	// }()
 
 	scrn.verbose = params.Verbose
 	var o []repo.CacheOption

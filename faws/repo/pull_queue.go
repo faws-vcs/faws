@@ -123,7 +123,7 @@ loop:
 		}
 
 		var pulled_object event.NotifyParams
-		pulled_object.Count = len(object)
+		pulled_object.Count = int64(len(object))
 		pulled_object.Prefix = prefix
 		pulled_object.Object1 = object_hash
 		repo.notify(event.NotifyPullObject, &pulled_object)
@@ -173,7 +173,7 @@ loop:
 		pq.CompleteTask(object_hash)
 
 		var notify_object_count event.NotifyParams
-		notify_object_count.Count = pq.available_tasks.Len() + pq.popped_tasks.Len()
+		notify_object_count.Count = int64(pq.available_tasks.Len() + pq.popped_tasks.Len())
 		repo.notify(event.NotifyPullQueueCount, &notify_object_count)
 	}
 

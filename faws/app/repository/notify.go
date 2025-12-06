@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ var (
 		event.StagePullObjects: "Retrieve objects",
 		event.StagePullTags:    "Retrieve tags",
 		event.StageCacheFiles:  "Cache files",
+		event.StageCacheFile:   "Cache file",
 		event.StageWriteTree:   "Write tree",
 	}
 
@@ -26,8 +28,9 @@ var (
 )
 
 type activity_stage struct {
-	stage event.Stage
-	state int
+	stage    event.Stage
+	state    int
+	is_child bool
 }
 
 type activity_screen struct {
@@ -43,11 +46,15 @@ type activity_screen struct {
 	last_object_hash   cas.ContentID
 	last_object_size   uint64
 
+	current_file_size     int64
+	current_file_progress int64
+	current_file_origin   string
+
 	verbose bool
 }
 
-func begin_stage(stage event.Stage) {
-	scrn.stages = append(scrn.stages, activity_stage{stage, 0})
+func begin_stage(stage event.Stage, child bool) {
+	scrn.stages = append(scrn.stages, activity_stage{stage, 0, child})
 }
 
 func complete_stage(stage event.Stage, success bool) {
@@ -55,7 +62,11 @@ func complete_stage(stage event.Stage, success bool) {
 		panic("stage complete mismatch")
 	}
 	if success {
-		scrn.stages[len(scrn.stages)-1].state = 1
+		if scrn.stages[len(scrn.stages)-1].is_child {
+			scrn.stages = scrn.stages[:len(scrn.stages)-1]
+		} else {
+			scrn.stages[len(scrn.stages)-1].state = 1
+		}
 	} else {
 		scrn.stages[len(scrn.stages)-1].state = 2
 	}
@@ -93,6 +104,11 @@ func notify(ev event.Notification, params *event.NotifyParams) {
 		if scrn.verbose {
 			app.Info("caching", params.Name1, params.Name2)
 		}
+		scrn.current_file_size = params.Count
+		scrn.current_file_progress = 0
+		scrn.current_file_origin = params.Name2
+	case event.NotifyCacheFilePart:
+		scrn.current_file_progress += params.Count
 	case event.NotifyCacheUsedLazySignature:
 		app.Info("using precached file (--lazy)", params.Name1, params.Name2)
 	case event.NotifyPullTag:
@@ -112,18 +128,18 @@ func notify(ev event.Notification, params *event.NotifyParams) {
 			object_size   = params.Count
 		)
 
-		update_pull_info(object_size, object_prefix, object_hash)
+		update_pull_info(int(object_size), object_prefix, object_hash)
 	case event.NotifyTagQueueCount:
-		scrn.tags_in_queue = params.Count
+		scrn.tags_in_queue = int(params.Count)
 	case event.NotifyPullQueueCount:
 		scrn.in_progress = true
-		scrn.objects_in_queue = params.Count
+		scrn.objects_in_queue = int(params.Count)
 	case event.NotifyCorruptedObject:
 		app.Warning("corrupted object", params.Prefix, params.Object1)
 	case event.NotifyRemovedCorruptedObject:
 		app.Warning("removed corrupted object", params.Prefix, params.Object1)
 	case event.NotifyBeginStage:
-		begin_stage(params.Stage)
+		begin_stage(params.Stage, params.Child)
 	case event.NotifyCompleteStage:
 		complete_stage(params.Stage, params.Success)
 	}
@@ -146,10 +162,24 @@ func render_activity_screen(hud *console.Hud) {
 	spinner.Stylesheet.Sequence[7] = console.Cell{'⢿', console.BrightBlue, 0}
 	spinner.Frequency = time.Second / 3
 
+	var stage_stack []int
 	var stage *activity_stage
+
 	for i := range scrn.stages {
 		stage = &scrn.stages[i]
-		message := fmt.Sprintf("%d) %s ", i+1, stages_text[stage.stage])
+		if len(stage_stack) == 0 || stage.is_child {
+			stage_stack = append(stage_stack, 0)
+		}
+		stage_stack[len(stage_stack)-1]++
+		var stage_str = ""
+		for i, v := range stage_stack {
+			if i > 0 {
+				stage_str += "."
+			}
+			stage_str += strconv.Itoa(v)
+		}
+
+		message := fmt.Sprintf("%s) %s ", stage_str, stages_text[stage.stage])
 		var stage_text console.Text
 		switch stage.state {
 		case 0:
@@ -210,5 +240,20 @@ func render_activity_screen(hud *console.Hud) {
 		progress_bar.Stylesheet.Width = console.Width()
 		progress_bar.Progress = float64(scrn.objects_received) / float64(scrn.objects_in_queue)
 		hud.Line(&progress_bar)
+	case event.StageCacheFile:
+		var file_name_text console.Text
+		file_name_text.Stylesheet.Width = console.Width()
+		file_name_text.Add(scrn.current_file_origin, 0, 0)
+
+		var progress_text console.Text
+		progress_text.Stylesheet.Width = 16
+		progress_text.Add(fmt.Sprintf("%s/%s", humanize.Bytes(uint64(scrn.current_file_progress)), humanize.Bytes(uint64(scrn.current_file_size))), 0, 0)
+
+		progress_bar.Stylesheet.Width = console.Width() - 16
+		progress_bar.Stylesheet.Alignment = console.Right
+		progress_bar.Progress = float64(scrn.current_file_progress) / float64(scrn.current_file_size)
+
+		hud.Line(&file_name_text)
+		hud.Line(&progress_text, &progress_bar)
 	}
 }

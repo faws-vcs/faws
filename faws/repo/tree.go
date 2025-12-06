@@ -66,8 +66,13 @@ func (repo *Repository) WriteTree() (tree_hash cas.ContentID, err error) {
 		repo.notify(event.NotifyCompleteStage, &notify_params)
 		return
 	}
+
 	tree_hash, err = cache_tree.Store(&repo.objects)
 	notify_params.Success = err == nil
 	repo.notify(event.NotifyCompleteStage, &notify_params)
+
+	// clear cached objects
+	repo.index.cache_objects = make(map[cas.ContentID]uint32)
+
 	return
 }

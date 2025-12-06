@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/faws-vcs/faws/faws/app"
 	"github.com/faws-vcs/faws/faws/fs"
 	"github.com/faws-vcs/faws/faws/multipart"
 	"github.com/faws-vcs/faws/faws/repo/cache"
@@ -147,6 +148,7 @@ func (repo *Repository) insert_lazy_file(signature multipart.LazySignature, file
 }
 
 func (repo *Repository) remove_lazy_file(file_hash cas.ContentID) (err error) {
+	app.Info("removing", file_hash)
 	for i, signature := range repo.index.lazy_signatures {
 		if signature.File == file_hash {
 			repo.index.lazy_signatures = slices.Delete(repo.index.lazy_signatures, i, i+1)
@@ -214,6 +216,7 @@ func (repo *Repository) cache_file(o *cache_options, path, origin string) (err e
 		return
 	}
 
+	// check for conflicts with existing files
 	directory_path := path
 	if !strings.HasSuffix(directory_path, "/") {
 		directory_path += "/"
@@ -221,14 +224,8 @@ func (repo *Repository) cache_file(o *cache_options, path, origin string) (err e
 	entries := repo.index.entries
 	for _, entry := range entries {
 		if strings.HasPrefix(entry.Path, directory_path) {
-			err = fmt.Errorf("faws/repo/cache: path prefix is already used as a directory")
+			err = fmt.Errorf("faws/repo: path used for new file conflicts with existing use as a directory")
 			return
-		}
-
-		if entry.Path == path {
-			if err = repo.Uncache(path); err != nil {
-				return
-			}
 		}
 	}
 
@@ -245,24 +242,36 @@ func (repo *Repository) cache_file(o *cache_options, path, origin string) (err e
 	}
 
 	var (
-		origin_file *os.File
-		chunker     multipart.Chunker
+		origin_file      *os.File
+		origin_file_info os.FileInfo
+		chunker          multipart.Chunker
 	)
 	origin_file, err = os.Open(origin)
 	if err != nil {
 		return
 	}
+	origin_file_info, err = origin_file.Stat()
+	if err != nil {
+		return
+	}
+
 	defer origin_file.Close()
 
 	var notify_params event.NotifyParams
 	notify_params.Name1 = path
 	notify_params.Name2 = origin
+	notify_params.Count = origin_file_info.Size()
 	repo.notify(event.NotifyCacheFile, &notify_params)
 
 	chunker, err = multipart.NewChunker(origin_file)
 	if err != nil {
 		return
 	}
+
+	var chunking_file_stage event.NotifyParams
+	chunking_file_stage.Stage = event.StageCacheFile
+	chunking_file_stage.Child = true
+	repo.notify(event.NotifyBeginStage, &chunking_file_stage)
 
 	// hold on to this
 	var (
@@ -310,6 +319,19 @@ func (repo *Repository) cache_file(o *cache_options, path, origin string) (err e
 
 				entry.File = lazy_file_hash
 				err = repo.insert_cache_index_entry(entry)
+
+				chunking_file_stage.Success = err == nil
+				repo.notify(event.NotifyCompleteStage, &chunking_file_stage)
+
+				return
+			}
+		}
+	}
+
+	// Remove existing entries with this path (deferred in case of detection of lazy signature)
+	for _, entry := range repo.index.entries {
+		if entry.Path == path {
+			if err = repo.Uncache(path); err != nil {
 				return
 			}
 		}
@@ -337,6 +359,10 @@ func (repo *Repository) cache_file(o *cache_options, path, origin string) (err e
 			return
 		}
 
+		var notify_cache_file_part event.NotifyParams
+		notify_cache_file_part.Count = int64(len(chunk))
+		repo.notify(event.NotifyCacheFilePart, &notify_cache_file_part)
+
 		// if the object did not exist until now
 		// or the object is a cache object,
 		// it's definitely not part of the repository
@@ -359,6 +385,10 @@ func (repo *Repository) cache_file(o *cache_options, path, origin string) (err e
 	entry.File = file_id
 
 	err = repo.insert_cache_index_entry(entry)
+
+	chunking_file_stage.Success = err == nil
+	repo.notify(event.NotifyCompleteStage, &chunking_file_stage)
+
 	if err != nil {
 		return
 	}

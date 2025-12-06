@@ -32,6 +32,7 @@ const (
 	//
 	StageNone Stage = iota
 	StageCacheFiles
+	StageCacheFile
 	StageWriteTree
 	StagePullTags
 	StagePullObjects
@@ -46,13 +47,15 @@ type NotifyParams struct {
 	Object1 cas.ContentID
 	// Remote
 	Object2 cas.ContentID
-	Count   int
+	Count   int64
 	// Path, Tag
 	Name1 string
 	// Origin
 	Name2 string
 	// CompleteStage
 	Success bool
+	// The stage is a child of the parent stage
+	Child bool
 }
 
 // A NotifyFunc can be supplied to repo.Repository.Open to get notifications about the repository's actions
