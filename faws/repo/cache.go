@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/faws-vcs/faws/faws/app"
 	"github.com/faws-vcs/faws/faws/fs"
 	"github.com/faws-vcs/faws/faws/multipart"
 	"github.com/faws-vcs/faws/faws/repo/cache"
@@ -70,12 +69,22 @@ func (repo *Repository) UncacheAll() (err error) {
 
 // ResetCache fully resets the index and removes cached index files
 func (repo *Repository) ResetCache() (err error) {
+	// keep lazy signatures that point to persistent objects
+	var new_lazy_signatures []cache.LazySignature
+	for _, lazy_signature := range repo.index.lazy_signatures {
+		if !repo.index_object_is_cache(lazy_signature.File) {
+			new_lazy_signatures = append(new_lazy_signatures, lazy_signature)
+		}
+	}
+
+	// remove non-persistent objects
 	err = repo.UncacheAll()
 	if err != nil {
 		return
 	}
 
-	repo.index.lazy_signatures = nil
+	// keep lazy signatures that point to persistent objects
+	repo.index.lazy_signatures = new_lazy_signatures
 	return
 }
 
@@ -148,7 +157,6 @@ func (repo *Repository) insert_lazy_file(signature multipart.LazySignature, file
 }
 
 func (repo *Repository) remove_lazy_file(file_hash cas.ContentID) (err error) {
-	app.Info("removing", file_hash)
 	for i, signature := range repo.index.lazy_signatures {
 		if signature.File == file_hash {
 			repo.index.lazy_signatures = slices.Delete(repo.index.lazy_signatures, i, i+1)
