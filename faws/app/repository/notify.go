@@ -20,6 +20,7 @@ var (
 		event.StageCacheFiles:  "Cache files",
 		event.StageCacheFile:   "Cache file",
 		event.StageWriteTree:   "Write tree",
+		event.StageCheckout:    "Checkout",
 	}
 
 	scrn activity_screen
@@ -49,6 +50,7 @@ type activity_screen struct {
 	current_file_size     int64
 	current_file_progress int64
 	current_file_origin   string
+	current_file_name     string
 
 	verbose bool
 }
@@ -79,6 +81,12 @@ func update_pull_info(object_size int, object_prefix cas.Prefix, object_hash cas
 	scrn.last_object_prefix = object_prefix
 	scrn.last_object_hash = object_hash
 	scrn.last_object_size = uint64(object_size)
+}
+
+func update_checkout(destination string, size int64) {
+	scrn.current_file_origin = destination
+	scrn.current_file_size = size
+	scrn.current_file_progress = 0
 }
 
 func prefix(p cas.Prefix) string {
@@ -142,6 +150,13 @@ func notify(ev event.Notification, params *event.NotifyParams) {
 		begin_stage(params.Stage, params.Child)
 	case event.NotifyCompleteStage:
 		complete_stage(params.Stage, params.Success)
+	case event.NotifyCheckoutFile:
+		if scrn.verbose {
+			app.Info(params.Name1)
+		}
+		update_checkout(params.Name1, params.Count)
+	case event.NotifyCheckoutFilePart:
+		scrn.current_file_progress += params.Count
 	}
 	guard.Unlock()
 
@@ -251,6 +266,21 @@ func render_activity_screen(hud *console.Hud) {
 
 		progress_bar.Stylesheet.Width = console.Width() - 16
 		progress_bar.Stylesheet.Alignment = console.Right
+		progress_bar.Progress = float64(scrn.current_file_progress) / float64(scrn.current_file_size)
+
+		hud.Line(&file_name_text)
+		hud.Line(&progress_text, &progress_bar)
+	case event.StageCheckout:
+		var file_name_text console.Text
+		file_name_text.Stylesheet.Width = console.Width()
+		file_name_text.Add(scrn.current_file_origin, 0, 0)
+
+		var progress_text console.Text
+		progress_text.Stylesheet.Width = 16
+		progress_text.Add(fmt.Sprintf("%s/%s", humanize.Bytes(uint64(scrn.current_file_progress)), humanize.Bytes(uint64(scrn.current_file_size))), 0, 0)
+
+		progress_bar.Stylesheet.Width = console.Width() - progress_text.Stylesheet.Width
+		// progress_bar.Stylesheet.Alignment = console.Right
 		progress_bar.Progress = float64(scrn.current_file_progress) / float64(scrn.current_file_size)
 
 		hud.Line(&file_name_text)

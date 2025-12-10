@@ -37,7 +37,7 @@ func ListTags(params *ListTagsParams) {
 		}
 
 		for _, tag := range tags {
-			app.Info(tag.Hash, tag.Name)
+			app.Info(tag.Name)
 		}
 	}
 

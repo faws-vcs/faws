@@ -73,6 +73,7 @@ func Initialize(directory string, origin_url string, reinitialize, force bool) (
 		d := json.NewDecoder(config_file)
 		err = d.Decode(&remote_config)
 		if err != nil {
+			err = fmt.Errorf("faws/repo: cannot decode remote repository's config: %w", err)
 			return
 		}
 		config.RepositoryFormat = remote_config.RepositoryFormat

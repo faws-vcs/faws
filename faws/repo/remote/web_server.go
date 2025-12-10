@@ -58,14 +58,14 @@ func (ws *web_server) ReadDir(name string) (entries []DirEntry, err error) {
 
 	index_document, index_document_err := html.Parse(index_html_file)
 	if index_document_err != nil {
-		err = index_document_err
+		err = fmt.Errorf("error parsing html: %w", index_document_err)
 		return
 	}
 	index_html_file.Close()
 
 	links, links_err := find_html_links(index_document)
 	if links_err != nil {
-		err = links_err
+		err = fmt.Errorf("error finding html links: %w", links_err)
 		return
 	}
 
@@ -100,6 +100,10 @@ func (ws *web_server) Pull(name string) (file io.ReadCloser, err error) {
 
 	response, err = ws.client.Do(request)
 	if err != nil {
+		return
+	}
+	if response.StatusCode != http.StatusOK {
+		err = fmt.Errorf("faws/repo/remote: server returned %d %s", response.StatusCode, response.Status)
 		return
 	}
 

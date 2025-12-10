@@ -22,6 +22,6 @@ func (set *Set) Stat(id ContentID) (size int64, err error) {
 		err = fmt.Errorf("%w: %s", ErrObjectNotFound, id)
 		return
 	}
-	size = fi.Size()
+	size = fi.Size() - 4
 	return
 }

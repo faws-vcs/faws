@@ -2,11 +2,13 @@ package repo
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/faws-vcs/faws/faws/fs"
 	"github.com/faws-vcs/faws/faws/repo/cas"
+	"github.com/faws-vcs/faws/faws/repo/event"
 	"github.com/faws-vcs/faws/faws/repo/revision"
 	"github.com/faws-vcs/faws/faws/validate"
 )
@@ -42,19 +44,48 @@ func (repo *Repository) checkout_file(file_hash cas.ContentID, mode revision.Fil
 		}
 	}
 
+	var file_size int64
+	var part_size int64
+	// compute file size
+	part_hashes := file_data
+	var part_hash cas.ContentID
+	for len(part_hashes) > 0 {
+		// reach each part hash
+		copy(part_hash[:], part_hashes[:cas.ContentIDSize])
+		part_hashes = part_hashes[cas.ContentIDSize:]
+		part_size, err = repo.objects.Stat(part_hash)
+		if err != nil {
+			return
+		}
+		file_size += part_size
+	}
+
+	var notify_checkout event.NotifyParams
+	notify_checkout.Name1 = dest
+	notify_checkout.Count = file_size
+	repo.notify(event.NotifyCheckoutFile, &notify_checkout)
+
 	var file *os.File
 	file, err = os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, perm)
 	if err != nil {
 		return
 	}
+	// allocate file size
+	if _, err = file.Seek(file_size, io.SeekStart); err != nil {
+		return
+	}
+	if _, err = file.Seek(0, io.SeekStart); err != nil {
+		return
+	}
 
 	var (
-		part_hash   cas.ContentID
 		part_prefix cas.Prefix
 		part_data   []byte
 	)
-	for len(file_data) > 0 {
-		copy(part_hash[:], file_data[:cas.ContentIDSize])
+	part_hashes = file_data
+	for len(part_hashes) > 0 {
+		copy(part_hash[:], part_hashes[:cas.ContentIDSize])
+		part_hashes = part_hashes[cas.ContentIDSize:]
 		part_prefix, part_data, err = repo.objects.Load(part_hash)
 		if err != nil {
 			return
@@ -69,10 +100,13 @@ func (repo *Repository) checkout_file(file_hash cas.ContentID, mode revision.Fil
 			return
 		}
 
-		file_data = file_data[cas.ContentIDSize:]
+		var notify_checkout_file_part event.NotifyParams
+		notify_checkout_file_part.Count = int64(len(part_data))
+		repo.notify(event.NotifyCheckoutFilePart, &notify_checkout_file_part)
 	}
 
 	err = file.Close()
+
 	return
 }
 
@@ -125,6 +159,10 @@ func (repo *Repository) checkout_commit(commit_hash cas.ContentID, dest string, 
 //
 // If overwrite == true, existing files in the path are destroyed and no error is returned.
 func (repo *Repository) Checkout(object_hash cas.ContentID, dest string, overwrite bool) (err error) {
+	var checkout_stage event.NotifyParams
+	checkout_stage.Stage = event.StageCheckout
+	repo.notify(event.NotifyBeginStage, &checkout_stage)
+
 	var (
 		prefix cas.Prefix
 		// data   []byte
@@ -144,5 +182,9 @@ func (repo *Repository) Checkout(object_hash cas.ContentID, dest string, overwri
 	default:
 		err = ErrCheckoutBadPrefix
 	}
+
+	checkout_stage.Success = err == nil
+	repo.notify(event.NotifyCompleteStage, &checkout_stage)
+
 	return
 }

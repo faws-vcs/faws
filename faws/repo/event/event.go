@@ -21,6 +21,8 @@ const (
 	NotifyRemovedCorruptedObject
 	NotifyBeginStage
 	NotifyCompleteStage
+	NotifyCheckoutFile
+	NotifyCheckoutFilePart
 )
 
 // A Stage represents a phase of operations within the repository, typically one that can take quite a long time.
@@ -36,6 +38,7 @@ const (
 	StageWriteTree
 	StagePullTags
 	StagePullObjects
+	StageCheckout
 )
 
 // NotifyParams are extra information parameters shared along with the Notification

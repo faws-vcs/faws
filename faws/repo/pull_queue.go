@@ -24,6 +24,13 @@ type pull_queue struct {
 	available_tasks object_hash_set
 }
 
+func (pq *pull_queue) Len() (n int) {
+	pq.guard_tasks.Lock()
+	n = pq.available_tasks.Len() + pq.popped_tasks.Len()
+	pq.guard_tasks.Unlock()
+	return
+}
+
 func new_pull_queue() (pq *pull_queue) {
 	pq = new(pull_queue)
 	pq.push_cond.L = new(sync.Mutex)
@@ -122,11 +129,11 @@ loop:
 			break
 		}
 
-		var pulled_object event.NotifyParams
-		pulled_object.Count = int64(len(object))
-		pulled_object.Prefix = prefix
-		pulled_object.Object1 = object_hash
-		repo.notify(event.NotifyPullObject, &pulled_object)
+		// var pulled_object event.NotifyParams
+		// pulled_object.Count = int64(len(object))
+		// pulled_object.Prefix = prefix
+		// pulled_object.Object1 = object_hash
+		// repo.notify(event.NotifyPullObject, &pulled_object)
 
 		switch prefix {
 		case cas.Commit:
@@ -173,7 +180,7 @@ loop:
 		pq.CompleteTask(object_hash)
 
 		var notify_object_count event.NotifyParams
-		notify_object_count.Count = int64(pq.available_tasks.Len() + pq.popped_tasks.Len())
+		notify_object_count.Count = int64(pq.Len())
 		repo.notify(event.NotifyPullQueueCount, &notify_object_count)
 	}
 
