@@ -2,9 +2,11 @@ package cas
 
 import "encoding/hex"
 
+const PrefixSize = 4
+
 // A Prefix helps clarify the purpose of each object.
 // The presence of prefixes allows for many tricks to be performed
-type Prefix [4]byte
+type Prefix [PrefixSize]byte
 
 var (
 	// The entry contains a list of file parts

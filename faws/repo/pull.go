@@ -1,16 +1,13 @@
 package repo
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
-	"strings"
 
 	"github.com/faws-vcs/faws/faws/repo/cas"
 	"github.com/faws-vcs/faws/faws/repo/event"
+	"github.com/faws-vcs/faws/faws/repo/p2p/tracker"
 	"github.com/faws-vcs/faws/faws/repo/remote"
-	"github.com/faws-vcs/faws/faws/repo/revision"
 	"github.com/faws-vcs/faws/faws/validate"
 )
 
@@ -30,39 +27,22 @@ import (
 //    The background will only stop draining once the supply of objects is exhausted (as long as the job count is > 0)
 // 5. (Files stage) look
 
-func (repo *Repository) remote_cache_path(object_hash cas.ContentID) string {
-	s := object_hash.String()
-	return "objects/" + s[0:2] + "/" + s[2:4] + "/" + s[4:]
-}
-
 // read an object from disk, or if missing, download it from the remote filesystem
-func (repo *Repository) fetch_object(fs remote.Fs, object_hash cas.ContentID) (prefix cas.Prefix, data []byte, err error) {
+func (repo *Repository) fetch_object(origin remote.Origin, object_hash cas.ContentID) (prefix cas.Prefix, data []byte, err error) {
 	prefix, data, err = repo.objects.Load(object_hash)
 	if err != nil && errors.Is(err, cas.ErrObjectNotFound) {
 		var (
-			object_file          io.ReadCloser
-			object_data          []byte
 			received_object_hash cas.ContentID
 		)
 
-		object_file, err = fs.Pull(repo.remote_cache_path(object_hash))
+		prefix, data, err = origin.GetObject(object_hash)
 		if err != nil {
 			return
 		}
-
-		object_data, err = io.ReadAll(object_file)
-		if err != nil {
-			return
-		}
-
-		object_file.Close()
-
-		copy(prefix[:], object_data[:4])
-		data = object_data[4:]
 
 		// attempt to store data
 		// also get the hash
-		_, received_object_hash, err = repo.objects.Store(prefix, object_data[4:])
+		_, received_object_hash, err = repo.objects.Store(prefix, data)
 		if err != nil {
 			return
 		}
@@ -77,7 +57,7 @@ func (repo *Repository) fetch_object(fs remote.Fs, object_hash cas.ContentID) (p
 		var notify_params event.NotifyParams
 		notify_params.Prefix = prefix
 		notify_params.Object1 = object_hash
-		notify_params.Count = int64(len(object_data) - 4)
+		notify_params.Count = int64(len(data))
 		repo.notify(event.NotifyPullObject, &notify_params)
 	} else if err != nil {
 		return
@@ -86,101 +66,79 @@ func (repo *Repository) fetch_object(fs remote.Fs, object_hash cas.ContentID) (p
 	return
 }
 
-// download a tag from the remote, but do not download all its contained information at once
-func (repo *Repository) pull_remote_tag(fs remote.Fs, tag string, force bool) (remote_commit_hash cas.ContentID, err error) {
-	var (
-		file io.ReadCloser
-	)
-	file, err = fs.Pull(fmt.Sprintf("tags/%s", tag))
-	if err != nil {
-		return
-	}
-	if _, err = io.ReadFull(file, remote_commit_hash[:]); err != nil {
-		return
-	}
-	file.Close()
+// // attempt to replace a local tag (if it exists) with a remote one. returns an error if there is a conflict
+// // that would result in the local tag becoming inaccessible (unless force == true)
+// func (repo *Repository) record_remote_tag(origin remote.Origin, remote_tag revision.Tag, force bool) (err error) {
+// 	remote_commit_hash := remote_tag.CommitHash
 
-	var (
-		local_commit_hash cas.ContentID
-	)
-	local_commit_hash, err = repo.read_tag(tag)
-	if force || err != nil {
-		var notify_params event.NotifyParams
-		notify_params.Name1 = tag
-		notify_params.Object1 = local_commit_hash
-		notify_params.Object2 = remote_commit_hash
+// 	var (
+// 		local_commit_hash cas.ContentID
+// 	)
+// 	local_commit_hash, err = repo.read_tag(remote_tag.Name)
+// 	if force || err != nil {
+// 		var notify_params event.NotifyParams
+// 		notify_params.Name1 = remote_tag.Name
+// 		notify_params.Object1 = local_commit_hash
+// 		notify_params.Object2 = remote_commit_hash
 
-		repo.notify(event.NotifyPullTag, &notify_params)
-		err = repo.write_tag(tag, remote_commit_hash)
-	} else {
-		var commit_info *revision.CommitInfo
-		current_remote_commit_hash := remote_commit_hash
-		should_overwrite_tag := false
+// 		repo.notify(event.NotifyPullTag, &notify_params)
+// 		err = repo.write_tag(remote_tag.Name, remote_commit_hash)
+// 	} else {
+// 		var commit_info *revision.CommitInfo
+// 		current_remote_commit_hash := remote_commit_hash
+// 		should_overwrite_tag := false
 
-		for current_remote_commit_hash != cas.Nil {
-			_, _, err = repo.fetch_object(fs, current_remote_commit_hash)
-			if err != nil {
-				return
-			}
+// 		for current_remote_commit_hash != cas.Nil {
+// 			_, _, err = repo.fetch_object(origin, current_remote_commit_hash)
+// 			if err != nil {
+// 				return
+// 			}
 
-			// look for commit info for this step in the tag's history
-			_, commit_info, err = repo.check_commit(current_remote_commit_hash)
-			if err != nil {
-				return
-			}
+// 			// look for commit info for this step in the tag's history
+// 			_, commit_info, err = repo.check_commit(current_remote_commit_hash)
+// 			if err != nil {
+// 				return
+// 			}
 
-			// if this step in the tag's history is the current local commit hash
-			if current_remote_commit_hash == local_commit_hash {
-				// we should overwrite the tag
-				should_overwrite_tag = true
-				break
-			}
-			// move to the previous commit
-			current_remote_commit_hash = commit_info.Parent
-		}
+// 			// if this step in the tag's history is the current local commit hash
+// 			if current_remote_commit_hash == local_commit_hash {
+// 				// we should overwrite the tag
+// 				should_overwrite_tag = true
+// 				break
+// 			}
+// 			// move to the previous commit
+// 			current_remote_commit_hash = commit_info.Parent
+// 		}
 
-		if should_overwrite_tag {
-			var notify_params event.NotifyParams
-			notify_params.Name1 = tag
-			notify_params.Object1 = local_commit_hash
-			notify_params.Object2 = remote_commit_hash
-			repo.notify(event.NotifyPullTag, &notify_params)
-			err = repo.write_tag(tag, remote_commit_hash)
-		} else {
-			err = ErrLocalTagNotInRemote
-		}
-	}
+// 		if should_overwrite_tag {
+// 			var notify_params event.NotifyParams
+// 			notify_params.Name1 = remote_tag.Name
+// 			notify_params.Object1 = local_commit_hash
+// 			notify_params.Object2 = remote_commit_hash
+// 			repo.notify(event.NotifyPullTag, &notify_params)
+// 			err = repo.write_tag(remote_tag.Name, remote_commit_hash)
+// 		} else {
+// 			err = ErrLocalTagNotInRemote
+// 		}
+// 	}
 
-	return
-}
+// 	return
+// }
 
-func (repo *Repository) list_remote_tags(fs remote.Fs) (tags []string, err error) {
-	entries, fs_err := fs.ReadDir("tags")
-	if fs_err != nil {
-		err = fs_err
-		return
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir {
-			if validate.CommitTag(entry.Name) == nil {
-				tags = append(tags, entry.Name)
-			}
-		}
-	}
-
-	return
-}
-
-// Clone retrieves all information from the origin remote and saves it to the repository
-func (repo *Repository) Clone(force bool) (err error) {
+// Clone retrieves all information from the remote, saving it to the current repository.
+func (repo *Repository) Clone() (err error) {
 	if repo.config.Origin == "" {
 		err = ErrPullNoOrigin
 		return
 	}
 
-	var fs remote.Fs
-	fs, err = remote.Open(repo.config.Origin)
+	if tracker.IsTopicURI(repo.config.Origin) {
+		err = repo.clone_p2p()
+		return
+	}
+
+	var origin remote.Origin
+	origin, err = remote.Open(repo.config.Origin)
 	if err != nil {
 		return
 	}
@@ -190,7 +148,7 @@ func (repo *Repository) Clone(force bool) (err error) {
 	repo.notify(event.NotifyBeginStage, &pull_tags_stage)
 
 	var tags []string
-	tags, err = repo.list_remote_tags(fs)
+	tags, err = origin.Tags()
 	if err != nil {
 		return
 	}
@@ -199,137 +157,185 @@ func (repo *Repository) Clone(force bool) (err error) {
 	tags_in_queue.Count = int64(len(tags))
 	repo.notify(event.NotifyTagQueueCount, &tags_in_queue)
 
-	tag_commit_hashes := make([]cas.ContentID, len(tags))
+	var tagged_commit_objects []cas.ContentID
 
-	for i, tag := range tags {
-		if tag_commit_hashes[i], err = repo.pull_remote_tag(fs, tag, force); err != nil {
+	for _, tag := range tags {
+		var current_tag_commit cas.ContentID
+		current_tag_commit, _ = repo.read_tag(tag)
+
+		var remote_tag_commit cas.ContentID
+		remote_tag_commit, err = origin.ReadTag(tag)
+		if err != nil {
 			return
 		}
+
+		if err = repo.WriteTag(tag, remote_tag_commit); err != nil {
+			return
+		}
+
+		var notify_pull_tag event.NotifyParams
+		notify_pull_tag.Name1 = tag
+		notify_pull_tag.Object1 = current_tag_commit
+		notify_pull_tag.Object2 = remote_tag_commit
+		repo.notify(event.NotifyPullTag, &notify_pull_tag)
+
+		tagged_commit_objects = append(tagged_commit_objects, remote_tag_commit)
 	}
 
 	pull_tags_stage.Success = true
 	repo.notify(event.NotifyCompleteStage, &pull_tags_stage)
 
-	err = repo.pull_object_graph(fs, tag_commit_hashes...)
+	err = repo.pull_object_graph(origin, tagged_commit_objects...)
 
-	return
-}
-
-func (repo *Repository) deabbreviate_remote_hash(fs remote.Fs, ref string) (object_hash cas.ContentID, err error) {
-	if !validate.Hex(ref) {
-		err = fmt.Errorf("%w: ref abbreviation must be hexadecimal", ErrBadRef)
-		return
-	}
-
-	// skip
-	if len(ref) == cas.ContentIDSize*2 {
-		_, err = hex.Decode(object_hash[:], []byte(ref))
-		return
-	}
-
-	if len(ref) < 5 {
-		err = fmt.Errorf("%w: ref abbreviation can't be less than 5 characters", ErrBadRef)
-		return
-	}
-
-	bucket := "objects/" + ref[0:2] + "/" + ref[2:4]
-
-	unknown_part := ref[4:]
-
-	var bucket_items []remote.DirEntry
-	bucket_items, err = fs.ReadDir(bucket)
-	if err != nil {
-		return
-	}
-
-	for _, item := range bucket_items {
-		if !item.IsDir {
-			if strings.HasPrefix(item.Name, unknown_part) {
-				_, err = hex.Decode(object_hash[:], []byte(ref[0:4]+item.Name))
-				return
-			}
-		}
-	}
-
-	err = fmt.Errorf("%w: remote hash not found", ErrBadRef)
 	return
 }
 
 // Pull only objects associated with a tag or an abbreviated object hash
-func (repo *Repository) Pull(ref string, force bool) (err error) {
+func (repo *Repository) Pull(ref ...string) (err error) {
 	if repo.config.Origin == "" {
 		err = ErrPullNoOrigin
 		return
 	}
 
-	fs, err := remote.Open(repo.config.Origin)
+	if tracker.IsTopicURI(repo.config.Origin) {
+		err = repo.pull_p2p(ref...)
+		return
+	}
+
+	origin, err := remote.Open(repo.config.Origin)
 	if err != nil {
 		return
 	}
 
-	var tags []string
-	tags, err = repo.list_remote_tags(fs)
-	if err != nil {
-		return
-	}
-
-	var object_hash cas.ContentID
-	var found_tag bool
-
-	for _, tag := range tags {
-		if tag == ref {
-			var notify_pull_tags event.NotifyParams
-			notify_pull_tags.Stage = event.StagePullTags
-			repo.notify(event.NotifyBeginStage, &notify_pull_tags)
-
-			var notify_tag_count event.NotifyParams
-			notify_tag_count.Count = 1
-			repo.notify(event.NotifyTagQueueCount, &notify_tag_count)
-
-			found_tag = true
-			object_hash, err = repo.pull_remote_tag(fs, ref, force)
-			if err != nil {
-				repo.notify(event.NotifyCompleteStage, &notify_pull_tags)
-				return
-			}
-
-			notify_pull_tags.Success = true
-			repo.notify(event.NotifyCompleteStage, &notify_pull_tags)
-
-			break
-		}
-	}
-
-	if !found_tag {
-		object_hash, err = repo.deabbreviate_remote_hash(fs, ref)
+	objects := make([]cas.ContentID, len(ref))
+	for i := range ref {
+		objects[i], err = repo.ParseRef(ref[i])
 		if err != nil {
+			if validate.Hex(ref[i]) {
+				if expanded, expansion_err := origin.Deabbreviate(ref[i]); expansion_err == nil {
+					objects[i] = expanded
+					continue
+				}
+			}
 			return
 		}
 	}
 
-	err = repo.pull_object_graph(fs, object_hash)
+	err = repo.pull_object_graph(origin, objects...)
 
 	return
 }
 
-// PullTags retrieves only the tags from the remote origin repository
-func (repo *Repository) PullTags(force bool) (err error) {
-	var fs remote.Fs
-	fs, err = remote.Open(repo.config.Origin)
+// PullTags retrieves all tags from the remote origin.
+// overwrites any tags already in the repository.
+func (repo *Repository) PullTags() (err error) {
+	if tracker.IsTopicURI(repo.config.Origin) {
+		err = repo.pull_tags_p2p()
+		return
+	}
+
+	var origin remote.Origin
+	origin, err = remote.Open(repo.config.Origin)
 	if err != nil {
 		return
 	}
+
+	// begin to pull tags
+	var notify_pull_tags event.NotifyParams
+	notify_pull_tags.Stage = event.StagePullTags
+	repo.notify(event.NotifyBeginStage, &notify_pull_tags)
+	// notify success if err == nil
+	defer func() {
+		if err == nil {
+			notify_pull_tags.Success = true
+		}
+		repo.notify(event.NotifyCompleteStage, &notify_pull_tags)
+	}()
 
 	var tags []string
-	tags, err = repo.list_remote_tags(fs)
+	tags, err = origin.Tags()
 	if err != nil {
 		return
 	}
 
+	// notify tag count
+	var tags_in_queue event.NotifyParams
+	tags_in_queue.Count = int64(len(tags))
+	repo.notify(event.NotifyTagQueueCount, &tags_in_queue)
+
 	for _, tag := range tags {
-		if _, err = repo.pull_remote_tag(fs, tag, force); err != nil {
+		var current_tag_commit cas.ContentID
+		current_tag_commit, _ = repo.read_tag(tag)
+
+		var remote_tag_commit cas.ContentID
+		remote_tag_commit, err = origin.ReadTag(tag)
+		if err != nil {
 			return
 		}
+
+		if err = repo.WriteTag(tag, remote_tag_commit); err != nil {
+			return
+		}
+
+		var notify_pull_tag event.NotifyParams
+		notify_pull_tag.Name1 = tag
+		notify_pull_tag.Object1 = current_tag_commit
+		notify_pull_tag.Object2 = remote_tag_commit
+		repo.notify(event.NotifyPullTag, &notify_pull_tag)
+	}
+
+	return
+}
+
+// PullTag retrieves only certain tags from the remote origin
+func (repo *Repository) PullTag(tags ...string) (err error) {
+	if tracker.IsTopicURI(repo.config.Origin) {
+		err = repo.pull_tag_p2p(tags...)
+		return
+	}
+
+	var origin remote.Origin
+	origin, err = remote.Open(repo.config.Origin)
+	if err != nil {
+		return
+	}
+
+	// begin to pull tags
+	var notify_pull_tags event.NotifyParams
+	notify_pull_tags.Stage = event.StagePullTags
+	repo.notify(event.NotifyBeginStage, &notify_pull_tags)
+	// notify success if err == nil
+	defer func() {
+		if err == nil {
+			notify_pull_tags.Success = true
+		}
+		repo.notify(event.NotifyCompleteStage, &notify_pull_tags)
+	}()
+
+	// notify tag count
+	var tags_in_queue event.NotifyParams
+	tags_in_queue.Count = int64(len(tags))
+	repo.notify(event.NotifyTagQueueCount, &tags_in_queue)
+
+	for _, tag := range tags {
+		var current_tag_commit cas.ContentID
+		current_tag_commit, _ = repo.read_tag(tag)
+
+		var remote_tag_commit cas.ContentID
+		remote_tag_commit, err = origin.ReadTag(tag)
+		if err != nil {
+			return
+		}
+
+		if err = repo.WriteTag(tag, remote_tag_commit); err != nil {
+			return
+		}
+
+		var notify_pull_tag event.NotifyParams
+		notify_pull_tag.Name1 = tag
+		notify_pull_tag.Object1 = current_tag_commit
+		notify_pull_tag.Object2 = remote_tag_commit
+		repo.notify(event.NotifyPullTag, &notify_pull_tag)
 	}
 
 	return

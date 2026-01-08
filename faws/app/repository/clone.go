@@ -49,7 +49,7 @@ func Clone(params *CloneParams) {
 		app.Fatal(err)
 	}
 
-	if err := Repo.Clone(true); err != nil {
+	if err := Repo.Clone(); err != nil {
 		app.Fatal(err)
 	}
 

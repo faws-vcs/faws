@@ -11,7 +11,7 @@ import (
 )
 
 var pull_cmd = cobra.Command{
-	Use:     "pull [--tags|ref]",
+	Use:     "pull [--tag] ...",
 	Short:   helpinfo.Text["pull"],
 	GroupID: "remote",
 	Run:     run_pull_cmd,
@@ -19,8 +19,7 @@ var pull_cmd = cobra.Command{
 
 func init() {
 	flag := pull_cmd.Flags()
-	flag.BoolP("tag", "t", false, "only pull the list of tags on the remote")
-	flag.BoolP("force", "f", false, "force the repository to pull information from the remote, even at the risk of losing track of local-only changes")
+	flag.BoolP("tag", "t", false, "pull the named tags instead of objects. If no tags are named, all tags from the origin will get pulled")
 	flag.BoolP("verbose", "v", false, "display extra information")
 	root.RootCmd.AddCommand(&pull_cmd)
 }
@@ -40,7 +39,7 @@ func run_pull_cmd(cmd *cobra.Command, args []string) {
 		Directory: working_directory,
 	}
 	if len(args) > 0 {
-		params.Ref = args[0]
+		params.Ref = args
 	}
 	flag := cmd.Flags()
 	params.Tags, err = flag.GetBool("tag")
@@ -48,17 +47,15 @@ func run_pull_cmd(cmd *cobra.Command, args []string) {
 		app.Fatal(err)
 		return
 	}
+
 	if !params.Tags {
 		if len(args) < 1 {
 			cmd.Help()
 			os.Exit(1)
 		}
 	}
-	params.Force, err = flag.GetBool("force")
-	if err != nil {
-		app.Fatal(err)
-		return
-	}
+
+	params.TrackerURL = os.Getenv("FAWS_TRACKER")
 	params.Verbose, err = flag.GetBool("verbose")
 	if err != nil {
 		app.Fatal(err)

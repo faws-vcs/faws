@@ -9,4 +9,5 @@ var (
 	ErrRingNoNametag            = fmt.Errorf("faws/identity: no nametag")
 	ErrRingNametagInUse         = fmt.Errorf("faws/identity: nametag in use")
 	ErrAbbreviationAmbiguous    = fmt.Errorf("faws/identity: ID abbreviation is ambiguous")
+	ErrIDStringTooShort         = fmt.Errorf("faws/identity: ID string is not the correct length")
 )

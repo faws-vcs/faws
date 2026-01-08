@@ -5,10 +5,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/faws-vcs/faws/faws/fs"
 	"github.com/faws-vcs/faws/faws/repo/cas"
+	"github.com/faws-vcs/faws/faws/repo/revision"
 	"github.com/faws-vcs/faws/faws/validate"
 )
 
@@ -66,39 +68,48 @@ func (repo *Repository) write_tag(tag string, commit_hash cas.ContentID) (err er
 	return
 }
 
-type Tag struct {
-	Name string
-	Hash cas.ContentID
-}
-
 // Tags returns a list of commit tag names and their associated commit hashes
-func (repo *Repository) Tags() (tags []Tag, err error) {
+func (repo *Repository) Tags() (tags []revision.Tag, err error) {
 	path := filepath.Join(repo.directory, "tags")
 	var items []os.DirEntry
 	items, err = os.ReadDir(path)
 	if err != nil {
 		return
 	}
-	tags = make([]Tag, 0, len(items))
+	tags = make([]revision.Tag, 0, len(items))
 	for _, item := range items {
 		info, info_err := item.Info()
 		if info_err == nil {
 			if !item.IsDir() && !strings.HasPrefix(item.Name(), ".") && info.Size() == cas.ContentIDSize {
 				commit_hash, tag_err := repo.read_tag(item.Name())
 				if tag_err == nil {
-					tags = append(tags, Tag{
-						Name: item.Name(),
-						Hash: commit_hash,
+					tags = append(tags, revision.Tag{
+						Name:       item.Name(),
+						CommitHash: commit_hash,
 					})
 				}
 			}
 		}
 	}
+	slices.SortFunc(tags, func(a, b revision.Tag) int {
+		if a.Name < b.Name {
+			return -1
+		} else if a.Name == b.Name {
+			return 0
+		} else {
+			return 1
+		}
+	})
 	return
 }
 
 // Tag returns a commit hash associated with a commit tag name
-func (repo *Repository) Tag(name string) (commit_hash cas.ContentID, err error) {
+func (repo *Repository) ReadTag(name string) (commit_hash cas.ContentID, err error) {
 	commit_hash, err = repo.read_tag(name)
+	return
+}
+
+func (repo *Repository) WriteTag(name string, commit_hash cas.ContentID) (err error) {
+	err = repo.write_tag(name, commit_hash)
 	return
 }

@@ -4,45 +4,85 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 )
 
 // A DirEntry is used to enumerate items in a remote filesystem
-type DirEntry struct {
+type dir_entry struct {
 	Name  string
 	IsDir bool
 }
 
-// Fs describes an interface to a remote filesystem
-type Fs interface {
+// filesystem describes an interface to a remote filesystem
+type filesystem interface {
 	// URL returns the URL string for the filesystem so it can be accessed at a later date
-	URL() string
+	URI() string
 	// ReadDir enumerates items in a remote directory
-	ReadDir(name string) (entries []DirEntry, err error)
+	ReadDir(name string) (entries []dir_entry, err error)
+	// Retrieves the size of the file, or an error if it is inaccessible
+	Stat(name string) (size int64, err error)
 	// Pull starts reading a file from the remote filesystem
 	Pull(name string) (file io.ReadCloser, err error)
 }
 
-// Open opens a remote filesystem using a local path or a URL string
-func Open(path string) (fs Fs, err error) {
-	var u *url.URL
-	u, err = url.Parse(path)
-	if err == nil && u.Scheme != "" {
-		fs, err = open_url(u)
+func is_uri(name string) (is_uri bool) {
+	var (
+		scheme  string
+		was_cut bool
+	)
+	scheme, _, was_cut = strings.Cut(name, ":")
+	if !was_cut {
 		return
 	}
 
-	fs, err = open_directory(path)
+	switch scheme {
+	case "http", "https", "topic":
+		is_uri = true
+		// case "git+https://"
+		// todo: implement git host free-riding
+		// i.e. storing massive repositories inside of git trees,
+		// download git trees and cache them in-memory,
+		// while downloading individual Faws objects directly
+	default:
+		is_uri = false
+	}
 	return
 }
 
-func open_url(u *url.URL) (fs Fs, err error) {
-	switch u.Scheme {
+// Open opens a remote Origin using a named local directory or URI
+func Open(name string) (origin Origin, err error) {
+	if is_uri(name) {
+		origin, err = open_uri(name)
+		return
+	}
+
+	origin, err = open_filesystem_local(name)
+	return
+}
+
+func open_uri(uri string) (origin Origin, err error) {
+	scheme, _, was_cut := strings.Cut(uri, ":")
+	if !was_cut {
+		return
+	}
+
+	switch scheme {
 	case "file":
-		fs, err = open_directory(u.Path)
+		var file_url *url.URL
+		file_url, err = url.Parse(uri)
+		if err != nil {
+			return
+		}
+		origin, err = open_filesystem_local(file_url.Path)
 	case "http", "https":
-		fs, err = open_web_server(u)
+		var website_url *url.URL
+		website_url, err = url.Parse(uri)
+		if err != nil {
+			return
+		}
+		origin, err = open_filesystem_website(website_url)
 	default:
-		err = fmt.Errorf("faws/remote: unknown scheme")
+		err = fmt.Errorf("%w: %s", scheme)
 	}
 	return
 }

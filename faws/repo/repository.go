@@ -4,12 +4,15 @@ import (
 	"path/filepath"
 
 	"github.com/faws-vcs/faws/faws/repo/cas"
+	"github.com/faws-vcs/faws/faws/repo/config"
 	"github.com/faws-vcs/faws/faws/repo/event"
+	"github.com/faws-vcs/faws/faws/repo/p2p/tracker"
+	"github.com/google/uuid"
 )
 
 type Repository struct {
 	// describes what mode the repository operates under
-	config Config
+	config config.Config
 	// the mechanism for detecting new authors and verifying their identities
 	trust Trust
 	// called to notify the user of certain events
@@ -20,6 +23,8 @@ type Repository struct {
 	objects cas.Set
 	// cached changes
 	index cache_index
+	// the URL of the tracker server
+	tracker_url string
 }
 
 type Option func(*Repository)
@@ -34,6 +39,9 @@ func (repo *Repository) Open(directory string, options ...Option) (err error) {
 	// ignore notifications by default
 	repo.notify = dont_care
 
+	// use official tracker server by default
+	repo.tracker_url = tracker.DefaultURL
+
 	// set directory
 	repo.directory = directory
 
@@ -45,7 +53,7 @@ func (repo *Repository) Open(directory string, options ...Option) (err error) {
 		return
 	}
 
-	if err = ReadConfig(filepath.Join(repo.directory, "config"), &repo.config); err != nil {
+	if err = config.ReadConfig(filepath.Join(repo.directory, "config"), &repo.config); err != nil {
 		return
 	}
 
@@ -60,6 +68,10 @@ func (repo *Repository) Open(directory string, options ...Option) (err error) {
 	}
 
 	return
+}
+
+func (repo *Repository) UUID() uuid.UUID {
+	return repo.config.UUID
 }
 
 // Close saves changes made to the repository and releases its resources

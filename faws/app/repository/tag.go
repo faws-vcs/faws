@@ -25,7 +25,7 @@ func ListTags(params *ListTagsParams) {
 	}
 
 	if params.Name != "" {
-		commit_hash, err := Repo.Tag(params.Name)
+		commit_hash, err := Repo.ReadTag(params.Name)
 		if err != nil {
 			app.Fatal(err)
 		}

@@ -70,6 +70,10 @@ func UnmarshalAttributes(data []byte, a *Attributes) (err error) {
 		return
 	}
 	a.Reserved = data[0]
+	if a.Reserved != 0 {
+		err = fmt.Errorf("faws/identity: attributes envelope has incorrect reserved byte")
+		return
+	}
 	data = data[1:]
 	nametag_length := binary.LittleEndian.Uint16(data[:2])
 	data = data[2:]

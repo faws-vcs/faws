@@ -42,9 +42,11 @@ func (set *Set) Store(prefix Prefix, data []byte) (new bool, id ContentID, err e
 
 	new = true
 
-	// open file
+	part_path := path + ".part"
+
+	// open file.part
 	var file *os.File
-	file, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fs.DefaultPublicPerm)
+	file, err = os.OpenFile(part_path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fs.DefaultPublicPerm)
 	if err != nil {
 		return
 	}
@@ -60,5 +62,7 @@ func (set *Set) Store(prefix Prefix, data []byte) (new bool, id ContentID, err e
 		return
 	}
 
+	// mv file.part file
+	err = os.Rename(part_path, path)
 	return
 }

@@ -3,6 +3,8 @@ package repo
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/faws-vcs/faws/faws/repo/config"
 )
 
 // Exists returns whether a repository exists at directory
@@ -16,8 +18,8 @@ func Exists(directory string) (exists bool) {
 	}
 
 	// check config file
-	var config Config
-	stat_err = ReadConfig(filepath.Join(directory, "config"), &config)
+	var repo_config config.Config
+	stat_err = config.ReadConfig(filepath.Join(directory, "config"), &repo_config)
 	if stat_err != nil {
 		return
 	}

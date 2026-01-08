@@ -1,10 +1,11 @@
-package repo
+package config
 
 import (
 	"encoding/json"
 	"os"
 
 	"github.com/faws-vcs/faws/faws/fs"
+	"github.com/google/uuid"
 )
 
 const Format = 1
@@ -17,8 +18,10 @@ type Config struct {
 	AppVersion string `json:"app_version"`
 	// The Faws repository version
 	RepositoryFormat uint8 `json:"repository_format"`
+	// The unique identifier of this repository
+	UUID uuid.UUID `json:"uuid"`
 	// URL pointing to the original location of the repository
-	Origin string `json:"remote,omitempty"`
+	Origin string `json:"origin,omitempty"`
 }
 
 // ReadConfig reads a config at the filename

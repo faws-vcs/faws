@@ -129,6 +129,7 @@ func notify(ev event.Notification, params *event.NotifyParams) {
 		} else if scrn.verbose {
 			app.Info("tag", params.Name1+":", params.Object2)
 		}
+		scrn.tags_received++
 	case event.NotifyPullObject:
 		var (
 			object_prefix = params.Prefix
@@ -157,6 +158,8 @@ func notify(ev event.Notification, params *event.NotifyParams) {
 		update_checkout(params.Name1, params.Count)
 	case event.NotifyCheckoutFilePart:
 		scrn.current_file_progress += params.Count
+	case event.NotifyPeerChannelActivated:
+		app.Info("connected to peer", params.ID)
 	}
 	guard.Unlock()
 

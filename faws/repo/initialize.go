@@ -1,15 +1,15 @@
 package repo
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/faws-vcs/faws/faws/app/about"
 	"github.com/faws-vcs/faws/faws/fs"
+	"github.com/faws-vcs/faws/faws/repo/config"
+	"github.com/faws-vcs/faws/faws/repo/p2p/tracker"
 	"github.com/faws-vcs/faws/faws/repo/remote"
+	"github.com/google/uuid"
 )
 
 // Initialize a repository at the directory.
@@ -41,47 +41,56 @@ func Initialize(directory string, origin_url string, reinitialize, force bool) (
 		}
 	}
 
-	var remote_fs remote.Fs
 	// create config
-	var config Config
-	config.AppID = "faws"
-	config.AppVersion = about.GetVersionString()
-	config.RepositoryFormat = Format
+	var config_ config.Config
+	config_.AppID = "faws"
+	config_.AppVersion = about.GetVersionString()
+	config_.RepositoryFormat = config.Format
 
 	config_name := filepath.Join(directory, "config")
 	if _, err = os.Stat(config_name); err == nil {
-		config = Config{}
-		if err = ReadConfig(config_name, &config); err != nil {
+		config_ = config.Config{}
+		if err = config.ReadConfig(config_name, &config_); err != nil {
 			return
 		}
 	}
 
 	// Detect the format of the repository by reading the remote config
 	// The rest of the config is not important to us (for now)
-	if origin_url != "" {
-		remote_fs, err = remote.Open(origin_url)
-		if err != nil {
-			return
+	if origin_url == "" {
+		if config_.UUID == uuid.Nil {
+			config_.UUID = uuid.New()
 		}
-		var config_file io.ReadCloser
-		config_file, err = remote_fs.Pull("config")
-		if err != nil {
-			err = fmt.Errorf("faws/repo: remote repository does not exist")
-			return
+	} else {
+		// special handling for topic URI
+		if tracker.IsTopicURI(origin_url) {
+			var topic tracker.Topic
+			err = tracker.ParseTopicURI(origin_url, &topic)
+			if err != nil {
+				return
+			}
+			config_.Origin = origin_url
+			// UUID is embedded in the topic URI
+			config_.UUID = topic.Repository
+		} else {
+			// treat as nominal origin
+			var origin remote.Origin
+			origin, err = remote.Open(origin_url)
+			if err != nil {
+				return
+			}
+
+			// read UUID from remote
+			config_.UUID, err = origin.UUID()
+			if err != nil {
+				return
+			}
+			// cleaned URL (for instance, if origin_url was a filepath, now it has file: URI)
+			config_.Origin = origin.URI()
 		}
-		var remote_config Config
-		d := json.NewDecoder(config_file)
-		err = d.Decode(&remote_config)
-		if err != nil {
-			err = fmt.Errorf("faws/repo: cannot decode remote repository's config: %w", err)
-			return
-		}
-		config.RepositoryFormat = remote_config.RepositoryFormat
-		// cleaned URL (for instance, if origin_url was a filepath, now it has file: URI)
-		config.Origin = remote_fs.URL()
 	}
 
-	err = WriteConfig(config_name, &config)
+	err = config.WriteConfig(config_name, &config_)
 	if err != nil {
 		return
 	}

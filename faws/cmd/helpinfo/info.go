@@ -13,9 +13,10 @@ var Text = map[string]string{
 	"id rm":      "remove an identity from the ring",
 	"id set":     "alter various identity attributes",
 
-	"pull":  "download a ref (tag/commit/tree/file/part) into the current repository",
-	"clone": "download the entire remote repository into the current directory",
-	"push":  "push an object and all its dependencies to the remote",
+	"pull":    "download tags or objects into the current repository",
+	"clone":   "download an entire remote repository into a directory",
+	"publish": "upload a manifest of the repository to the tracker server",
+	"seed":    "connect directly with other computers and upload repository objects to them",
 
 	"init":        "create an empty repository in the current directory",
 	"add":         "add a file or directory to the index",
@@ -62,6 +63,8 @@ var Categories = []CategoryEntry{
 		[]string{
 			"pull",
 			"clone",
+			"seed",
+			"publish",
 		},
 	},
 

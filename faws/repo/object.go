@@ -21,3 +21,8 @@ func (repo *Repository) RemoveObject(id cas.ContentID) (err error) {
 	err = repo.objects.Remove(id)
 	return
 }
+
+func (repo *Repository) StatObject(id cas.ContentID) (size int64, err error) {
+	size, err = repo.objects.Stat(id)
+	return
+}

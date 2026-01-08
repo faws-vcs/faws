@@ -1,6 +1,9 @@
 package event
 
-import "github.com/faws-vcs/faws/faws/repo/cas"
+import (
+	"github.com/faws-vcs/faws/faws/identity"
+	"github.com/faws-vcs/faws/faws/repo/cas"
+)
 
 // A Notification signifies different types of repository events
 type Notification uint8
@@ -23,6 +26,8 @@ const (
 	NotifyCompleteStage
 	NotifyCheckoutFile
 	NotifyCheckoutFilePart
+	// p2p
+	NotifyPeerChannelActivated
 )
 
 // A Stage represents a phase of operations within the repository, typically one that can take quite a long time.
@@ -59,6 +64,8 @@ type NotifyParams struct {
 	Success bool
 	// The stage is a child of the parent stage
 	Child bool
+	//
+	ID identity.ID
 }
 
 // A NotifyFunc can be supplied to repo.Repository.Open to get notifications about the repository's actions
