@@ -60,7 +60,7 @@ func (pull_job *pull_job) worker() (err error) {
 			return
 		}
 
-		load_scale := float64(1) / float64(subscription.object_wishlist.Len())
+		load_scale := float64(1) / float64(subscription.object_wishlist.AvailableLen())
 		duration := time.Duration(float64(1500)*load_scale) * time.Millisecond
 		time.Sleep(duration)
 

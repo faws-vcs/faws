@@ -84,3 +84,10 @@ func (task_heap *TaskHeap[T]) Len() (n int) {
 	task_heap.guard_items.Unlock()
 	return
 }
+
+func (task_heap *TaskHeap[T]) AvailableLen() (n int) {
+	task_heap.guard_items.Lock()
+	n = task_heap.available_items.Len()
+	task_heap.guard_items.Unlock()
+	return
+}

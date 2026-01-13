@@ -173,6 +173,7 @@ func DecodeManifestInfo(b []byte, topic Topic, out *ManifestInfo) (err error) {
 			return
 		}
 		tag_names[i] = tag_name
+		cleartext = cleartext[tag_name_lengths[i]:]
 	}
 	// tie hashes and tags together
 	out.Tags = make([]revision.Tag, num_tags)
