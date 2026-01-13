@@ -3,6 +3,7 @@ package repo
 import (
 	"errors"
 	"io"
+	"sync"
 
 	"github.com/faws-vcs/faws/faws/repo/cas"
 	"github.com/faws-vcs/faws/faws/repo/event"
@@ -11,7 +12,18 @@ import (
 	"github.com/faws-vcs/faws/faws/repo/revision"
 )
 
-func (repo *Repository) pull_object_graph_worker(error_channel chan<- error, origin remote.Origin, pq *queue.TaskQueue[cas.ContentID]) {
+type pull_queue struct {
+	object_lock  sync.Mutex
+	object_locks map[[8]byte]*sync.Mutex
+	object_queue queue.TaskQueue[cas.ContentID]
+}
+
+func (pq *pull_queue) init() {
+	pq.object_locks = make(map[[8]byte]*sync.Mutex)
+	pq.object_queue.Init()
+}
+
+func (repo *Repository) pull_object_graph_worker(error_channel chan<- error, origin remote.Origin, pq *pull_queue) {
 	var err error
 
 loop:
@@ -21,7 +33,7 @@ loop:
 			prefix      cas.Prefix
 			object      []byte
 		)
-		object_hash, err = pq.Pop()
+		object_hash, err = pq.object_queue.Pop()
 		if errors.Is(err, io.EOF) {
 			// end of queue; not a problem
 			err = nil
@@ -54,11 +66,11 @@ loop:
 				break loop
 			}
 
-			pq.Push(commit_info.Tree)
+			pq.object_queue.Push(commit_info.Tree)
 
 			// get parents too
 			if commit_info.Parent != cas.Nil {
-				pq.Push(commit_info.Parent)
+				pq.object_queue.Push(commit_info.Parent)
 			}
 		case cas.Tree:
 			var tree revision.Tree
@@ -66,7 +78,7 @@ loop:
 				break loop
 			}
 			for _, entry := range tree.Entries {
-				pq.Push(entry.Content)
+				pq.object_queue.Push(entry.Content)
 			}
 		case cas.File:
 			var part_id cas.ContentID
@@ -76,7 +88,7 @@ loop:
 
 				// only download file parts we don't have
 				if _, err = repo.objects.Stat(part_id); err != nil {
-					pq.Push(part_id)
+					pq.object_queue.Push(part_id)
 					err = nil
 				}
 
@@ -86,16 +98,16 @@ loop:
 			// raw data, nothing to do except complete task
 		}
 
-		pq.Complete(object_hash)
+		pq.object_queue.Complete(object_hash)
 
 		var notify_object_count event.NotifyParams
-		notify_object_count.Count = int64(pq.Len())
+		notify_object_count.Count = int64(pq.object_queue.Len())
 		repo.notify(event.NotifyPullQueueCount, &notify_object_count)
 	}
 
 	if err != nil {
 		// tell all other workers to stop
-		pq.Stop()
+		pq.object_queue.Stop()
 	}
 
 	error_channel <- err
@@ -108,12 +120,12 @@ func (repo *Repository) pull_object_graph(origin remote.Origin, objects ...cas.C
 		return
 	}
 
-	var pq queue.TaskQueue[cas.ContentID]
-	pq.Init()
+	var pq pull_queue
+	pq.init()
 	// starting with 1+ object tasks
 	// means that the task counter will not achieve 0 until all necessary objects are downloaded
 	for _, object := range objects {
-		pq.Push(object)
+		pq.object_queue.Push(object)
 	}
 
 	// notify the CLI/GUI/remote client/whatever that we're starting to pull objects

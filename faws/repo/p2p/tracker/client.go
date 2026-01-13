@@ -46,6 +46,7 @@ func (client *Client) Init(tracker_url string, peer_identity *identity.Pair) (er
 		client.shutdown = make(chan struct{})
 
 		client.peer_identity = *peer_identity
+		client.connection.init()
 		go client.manage_signaling()
 	}
 

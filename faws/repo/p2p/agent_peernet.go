@@ -8,14 +8,24 @@ import (
 )
 
 func (agent *Agent) set_peernet_handlers() {
-	agent.peernet_client.OnChannelUpdate(func(topic tracker.Topic, peer identity.ID, channel_state peernet.ChannelState) {
-		switch channel_state {
-		case peernet.ChannelActive:
+	agent.peernet_client.OnPeerUpdate(func(topic tracker.Topic, peer identity.ID, peer_state peernet.PeerState) {
+		switch peer_state {
+		case peernet.PeerConnected:
 			var notify_params event.NotifyParams
 			notify_params.ID = peer
-			agent.options.notify(event.NotifyPeerChannelActivated, &notify_params)
-		case peernet.ChannelDisconnected:
-		case peernet.ChannelClosed:
+			agent.options.notify(event.NotifyPeerConnected, &notify_params)
+
+			subscription, _ := agent.get_subscription(topic)
+			subscription.add_peer(peer)
+		case peernet.PeerDisconnected:
+			var notify_params event.NotifyParams
+			notify_params.ID = peer
+			agent.options.notify(event.NotifyPeerDisconnected, &notify_params)
+
+			subscription, is_subscribed := agent.get_subscription(topic)
+			if is_subscribed {
+				subscription.remove_peer(peer)
+			}
 		}
 	})
 

@@ -40,6 +40,8 @@ func run_clone_cmd(cmd *cobra.Command, args []string) {
 		Remote:    args[0],
 	}
 
+	params.TrackerURL = os.Getenv("FAWS_TRACKER")
+
 	// use the second argument as repository location, if supplied
 	if len(args) > 1 {
 		params.Directory = args[1]

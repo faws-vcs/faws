@@ -141,18 +141,16 @@ func (s *Server) handle_signaling(rw http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("new connection")
 
-	var err error
 	var signaling_connection signaling_connection
-	signaling_connection.conn, err = upgrader.Upgrade(rw, r, nil)
+	err := signaling_connection.accept(rw, r)
 	if err != nil {
 		s.respond(rw, http.StatusBadRequest, models.GenericResponse{Message: err.Error()})
 		return
 	}
-
 	if err = s.handle_signaling_login(&signaling_connection); err != nil {
 		fmt.Println("failed login", err)
 		signaling_connection.command(sp_kick, []byte(err.Error()))
-		signaling_connection.conn.Close()
+		signaling_connection.Close()
 		return
 	}
 

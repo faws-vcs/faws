@@ -52,6 +52,8 @@ type activity_screen struct {
 	current_file_origin   string
 	current_file_name     string
 
+	connected_peers int
+
 	verbose bool
 }
 
@@ -158,8 +160,12 @@ func notify(ev event.Notification, params *event.NotifyParams) {
 		update_checkout(params.Name1, params.Count)
 	case event.NotifyCheckoutFilePart:
 		scrn.current_file_progress += params.Count
-	case event.NotifyPeerChannelActivated:
-		app.Info("connected to peer", params.ID)
+	case event.NotifyPeerConnected:
+		scrn.connected_peers++
+		// app.Info("connected to peer", params.ID)
+	case event.NotifyPeerDisconnected:
+		scrn.connected_peers++
+		// app.Info("disconnected from", params.ID)
 	}
 	guard.Unlock()
 
@@ -167,6 +173,9 @@ func notify(ev event.Notification, params *event.NotifyParams) {
 }
 
 func render_activity_screen(hud *console.Hud) {
+	if hud.Exiting() {
+		return
+	}
 	guard.Lock()
 	defer guard.Unlock()
 	var spinner console.Spinner
@@ -240,6 +249,14 @@ func render_activity_screen(hud *console.Hud) {
 		progress_bar.Progress = float64(scrn.tags_received) / float64(scrn.tags_in_queue)
 		hud.Line(&progress_bar)
 	case event.StagePullObjects:
+		if scrn.connected_peers > 0 {
+			var peers_text console.Text
+			peers_text.Stylesheet.Margin[console.Left] = 1
+			peers_text.Stylesheet.Width = console.Width()
+			peers_text.Add(fmt.Sprintf("%d peers connected", scrn.connected_peers), 0, 0)
+			hud.Line(&peers_text)
+		}
+
 		var usage_text console.Text
 		usage_text.Stylesheet.Width = console.Width()
 		usage_text.Stylesheet.Margin[console.Left] = 1

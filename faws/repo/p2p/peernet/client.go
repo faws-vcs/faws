@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/faws-vcs/faws/faws/identity"
 	"github.com/faws-vcs/faws/faws/repo/p2p/tracker"
@@ -12,13 +13,15 @@ import (
 )
 
 type (
-	MessageHandlerFunc       func(topic tracker.Topic, peer identity.ID, message_id MessageID, message []byte)
-	ChannelUpdateHandlerFunc func(topic tracker.Topic, peer identity.ID, channel_state ChannelState)
+	MessageHandlerFunc    func(topic tracker.Topic, peer identity.ID, message_id MessageID, message []byte)
+	PeerUpdateHandlerFunc func(topic tracker.Topic, peer identity.ID, peer_state PeerState)
 )
 
 // Client serves as the interface for a peer to communicate with other peers
 // It is not responsible for fully implementing the behavior of a peer.
 type Client struct {
+	is_shutdown atomic.Bool
+
 	tracker_client tracker.Client
 
 	options client_options
@@ -34,7 +37,7 @@ type Client struct {
 	topic_channels       map[tracker.Topic]*topic_channel
 
 	// handlers
-	channel_update_handler  ChannelUpdateHandlerFunc
+	peer_update_handler     PeerUpdateHandlerFunc
 	channel_message_handler MessageHandlerFunc
 }
 
@@ -90,7 +93,7 @@ func (client *Client) Init(options ...ClientOption) (err error) {
 	client.topic_channels = make(map[tracker.Topic]*topic_channel)
 
 	// set default handlers
-	client.channel_update_handler = func(topic tracker.Topic, peer identity.ID, channel_state ChannelState) {}
+	client.peer_update_handler = func(topic tracker.Topic, peer identity.ID, peer_state PeerState) {}
 	client.channel_message_handler = func(topic tracker.Topic, peer identity.ID, message_id MessageID, message []byte) {}
 
 	client.tracker_client.OnPeer(func(topic tracker.Topic, peer identity.ID) {
@@ -133,8 +136,8 @@ func (client *Client) Init(options ...ClientOption) (err error) {
 	return
 }
 
-func (client *Client) OnChannelUpdate(channel_update_handler ChannelUpdateHandlerFunc) {
-	client.channel_update_handler = channel_update_handler
+func (client *Client) OnPeerUpdate(peer_update_handler PeerUpdateHandlerFunc) {
+	client.peer_update_handler = peer_update_handler
 }
 
 func (client *Client) OnMessage(message_handler MessageHandlerFunc) {
@@ -173,6 +176,8 @@ func (client *Client) Broadcast(topic tracker.Topic, message_id MessageID, messa
 }
 
 func (client *Client) Shutdown() {
+	client.is_shutdown.Store(true)
+
 	client.guard_topic_channels.Lock()
 	var topics []tracker.Topic
 	for topic := range client.topic_channels {

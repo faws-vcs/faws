@@ -27,7 +27,8 @@ const (
 	NotifyCheckoutFile
 	NotifyCheckoutFilePart
 	// p2p
-	NotifyPeerChannelActivated
+	NotifyPeerConnected
+	NotifyPeerDisconnected
 )
 
 // A Stage represents a phase of operations within the repository, typically one that can take quite a long time.

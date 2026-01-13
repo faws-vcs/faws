@@ -13,20 +13,19 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-type ChannelState uint8
+type PeerState uint8
 
 const (
-	ChannelDisconnected = iota
-	ChannelActive
-	ChannelClosed
+	PeerDisconnected = iota
+	PeerConnected
 	NumChannelStates
 )
 
-func (channel_state ChannelState) String() (s string) {
+func (channel_state PeerState) String() (s string) {
 	if channel_state > NumChannelStates {
 		return "?"
 	}
-	s = []string{"disconnected", "active", "closed"}[channel_state]
+	s = []string{"disconnected", "connected"}[channel_state]
 	return
 }
 
@@ -56,8 +55,6 @@ type peer_connection struct {
 	// data_channel datachannel.ReadWriteCloser
 	expected_bytes  uint32
 	current_message *bytes.Buffer
-	//
-	is_choked bool
 	//
 	state atomic.Int32
 	//
@@ -180,6 +177,9 @@ func (peer_connection *peer_connection) handle_connection_state_change(pcs webrt
 	switch pcs {
 	case webrtc.PeerConnectionStateClosed:
 		peer_connection.topic_channel.close(peer_connection.peer)
+	case webrtc.PeerConnectionStateDisconnected:
+		peer_connection.set_state(PeerDisconnected)
+	case webrtc.PeerConnectionStateConnected:
 	}
 }
 
@@ -187,7 +187,9 @@ func (peer_connection *peer_connection) set_state(state int32) {
 	old_state := peer_connection.state.Load()
 	if peer_connection.state.Load() != state {
 		if peer_connection.state.CompareAndSwap(old_state, state) {
-			peer_connection.topic_channel.client.channel_update_handler(peer_connection.topic_channel.topic, peer_connection.peer, ChannelState(state))
+			if !peer_connection.topic_channel.client.is_shutdown.Load() {
+				peer_connection.topic_channel.client.peer_update_handler(peer_connection.topic_channel.topic, peer_connection.peer, PeerState(state))
+			}
 		}
 	}
 }
@@ -204,7 +206,7 @@ func (peer_connection *peer_connection) create_data_channel() {
 	data_channel, err = peer_connection.connection.CreateDataChannel("faws peernet v1", &data_channel_init)
 	if err == nil {
 		data_channel.OnOpen(func() {
-			peer_connection.set_state(ChannelActive)
+			peer_connection.set_state(PeerConnected)
 		})
 		// data channel message arrives in-order, but fragmented.
 		// since data channels are limited to a particular size (~16KB)
@@ -215,7 +217,7 @@ func (peer_connection *peer_connection) create_data_channel() {
 			peer_connection.handle_message_packet(data_channel_message.Data)
 		})
 		data_channel.OnClose(func() {
-			peer_connection.set_state(ChannelClosed)
+			peer_connection.set_state(PeerDisconnected)
 		})
 	}
 	peer_connection.data_channel = data_channel
@@ -229,7 +231,6 @@ func (peer_connection *peer_connection) handle_message_packet(fragment []byte) {
 		console.Println("error handling message packet", err)
 	}
 	peer_connection.read_lock.Unlock()
-	return
 }
 
 func (peer_connection *peer_connection) handle_message_fragment(fragment []byte) (err error) {
@@ -312,7 +313,7 @@ func (peer_connection *peer_connection) handle_message_fragment(fragment []byte)
 const maximum_fragment_size = 16384
 
 func (peer_connection *peer_connection) send(message_id MessageID, message []byte) (err error) {
-	if peer_connection.state.Load() == ChannelActive {
+	if peer_connection.state.Load() == PeerConnected {
 		peer_connection.write_lock.Lock()
 		defer peer_connection.write_lock.Unlock()
 
@@ -333,9 +334,7 @@ func (peer_connection *peer_connection) send(message_id MessageID, message []byt
 		for i := uint32(0); i < fragment_count; i++ {
 			lower := i * maximum_fragment_size
 			upper := (i + 1) * maximum_fragment_size
-			if upper > uint32(len(message_full)) {
-				upper = uint32(len(message_full))
-			}
+			upper = min(uint32(len(message_full)), upper)
 			if err = peer_connection.data_channel.Send(message_full[lower:upper]); err != nil {
 				return
 			}
@@ -349,6 +348,6 @@ func (peer_connection *peer_connection) send(message_id MessageID, message []byt
 func (peer_connection *peer_connection) close() {
 	peer_connection.data_channel.Close()
 	peer_connection.connection.Close()
-	peer_connection.set_state(ChannelClosed)
+	peer_connection.set_state(PeerDisconnected)
 
 }

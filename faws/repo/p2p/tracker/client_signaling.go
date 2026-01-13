@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/faws-vcs/faws/faws/identity"
-	"github.com/gorilla/websocket"
 )
 
 type (
@@ -128,9 +127,7 @@ func (client *Client) subscribe(topic Topic) {
 	topic_hash := topic.Hash()
 	client.subscriptions[topic_hash] = topic
 	client.guard_subscriptions.Unlock()
-	if client.connection.Open() {
-		client.connection.command(sp_subscribe, topic_hash[:])
-	}
+	client.connection.command(sp_subscribe, topic_hash[:])
 }
 
 func (client *Client) unsubscribe(topic Topic) {
@@ -138,9 +135,7 @@ func (client *Client) unsubscribe(topic Topic) {
 	topic_hash := topic.Hash()
 	client.subscriptions[topic_hash] = topic
 	client.guard_subscriptions.Unlock()
-	if client.connection.Open() {
-		client.connection.command(sp_subscribe, topic_hash[:])
-	}
+	client.connection.command(sp_subscribe, topic_hash[:])
 }
 
 func (client *Client) handle_signal(data []byte) {
@@ -259,9 +254,9 @@ establish_connection:
 		for {
 			signaling_url := client.signaling_url()
 			// console.Println("dial!")
-			client.connection.conn, _, err = websocket.DefaultDialer.Dial(signaling_url, nil)
+
+			err = client.connection.dial(signaling_url)
 			if err == nil {
-				// console.Println("giveup")
 				break
 			}
 			// console.Println(miss_count, "failed to connect to", signaling_url, err)
@@ -322,9 +317,7 @@ process:
 		case topic_hash := <-client.pending_unsubscriptions:
 			client.unsubscribe(topic_hash)
 		case command := <-client.pending_commands:
-			if client.connection.Open() {
-				client.connection.command(command.command, command.argument)
-			}
+			client.connection.command(command.command, command.argument)
 		case <-client.shutdown:
 			client.connection.Close()
 			break process

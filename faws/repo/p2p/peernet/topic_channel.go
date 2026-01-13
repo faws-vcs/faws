@@ -98,7 +98,7 @@ func (topic_channel *topic_channel) send(peer identity.ID, message_id MessageID,
 	topic_channel.guard_peer_connections.Lock()
 	peer_connection, peer_connection_found := topic_channel.peer_connections[peer]
 	if peer_connection_found {
-		peer_connection.send(message_id, message)
+		err = peer_connection.send(message_id, message)
 	} else {
 		err = fmt.Errorf("%w: %s", ErrPeerNotFound, peer)
 	}

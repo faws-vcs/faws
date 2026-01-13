@@ -90,6 +90,7 @@ func (agent *Agent) Clone(topic tracker.Topic) (job Job, err error) {
 	pull_job_.init(subscription, objects)
 
 	subscription.set_current_job(pull_job_)
+	job = pull_job_
 	return
 }
 

@@ -6,7 +6,7 @@ require (
 	github.com/Gophercraft/mpq v0.1.1-0.20250127065928-651347da2df6
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dustin/go-humanize v1.0.1
-	github.com/faws-vcs/console v0.0.0-20251218021759-3386f477a14f
+	github.com/faws-vcs/console v0.0.0-20260113130022-ff5333a74929
 	github.com/google/btree v1.1.3
 	github.com/restic/chunker v0.4.1-0.20231001122857-ac4c622f4b08
 	github.com/spf13/cobra v1.9.1
@@ -38,6 +38,6 @@ require (
 	github.com/ulikunitz/xz v0.5.12 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
-	golang.org/x/sys v0.39.0 // indirect
-	golang.org/x/term v0.38.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/term v0.39.0 // indirect
 )

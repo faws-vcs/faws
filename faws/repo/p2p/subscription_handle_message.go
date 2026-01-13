@@ -1,14 +1,13 @@
 package p2p
 
 import (
-	"github.com/faws-vcs/console"
 	"github.com/faws-vcs/faws/faws/identity"
 	"github.com/faws-vcs/faws/faws/repo/cas"
 	"github.com/faws-vcs/faws/faws/repo/p2p/peernet"
 )
 
 func (subscription *subscription) handle_message(peer identity.ID, message_id peernet.MessageID, message []byte) {
-	console.Println("received message from", peer, message_id)
+	// console.Println("received message from", peer, message_id)
 
 	switch message_id {
 	case peernet.HaveObject:

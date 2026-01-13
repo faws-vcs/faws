@@ -21,6 +21,7 @@ type TaskQueue[T OrderedSetItem[T]] struct {
 	task_counter atomic.Int64
 	push_cond    sync.Cond
 	guard_tasks  sync.Mutex
+	queue_count  int
 	// contains tasks that are being processed or were already processed
 	popped_tasks ordered_object_set[T]
 	// contains tasks that are available for workers to process
@@ -37,7 +38,7 @@ func (task_queue *TaskQueue[T]) Init() {
 // Len return the the amount of all tasks pushed and popped from the queue
 func (task_queue *TaskQueue[T]) Len() (n int) {
 	task_queue.guard_tasks.Lock()
-	n = task_queue.available_tasks.Len() + task_queue.popped_tasks.Len()
+	n = task_queue.queue_count
 	task_queue.guard_tasks.Unlock()
 	return
 }
@@ -46,6 +47,7 @@ func (task_queue *TaskQueue[T]) Len() (n int) {
 func (task_queue *TaskQueue[T]) Push(object T) {
 	task_queue.guard_tasks.Lock()
 	if !task_queue.popped_tasks.Contains(object) && task_queue.available_tasks.Push(object) {
+		task_queue.queue_count++
 		task_queue.task_counter.Add(1)
 		task_queue.push_cond.Signal()
 	}

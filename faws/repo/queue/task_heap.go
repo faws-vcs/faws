@@ -1,20 +1,20 @@
 package queue
 
 import (
-	"io"
 	"sync"
 )
 
 // TaskHeap offers a continuous heap of tasks.
 type TaskHeap[T comparable] struct {
 	guard_items     sync.Mutex
-	available_items map[T]struct{}
-	completed_items map[T]struct{}
+	heap_count      int64
+	available_items UnorderedSet[T]
+	completed_items UnorderedSet[T]
 }
 
 func (task_heap *TaskHeap[T]) Init() {
-	task_heap.available_items = make(map[T]struct{})
-	task_heap.completed_items = make(map[T]struct{})
+	task_heap.available_items.Init()
+	task_heap.completed_items.Init()
 }
 
 // Pick: returns a random item from the heap.
@@ -22,12 +22,7 @@ func (task_heap *TaskHeap[T]) Init() {
 // There is no guarantee that the same item won't removed twice or at the same time in another goroutine
 func (task_heap *TaskHeap[T]) Pick() (item T, err error) {
 	task_heap.guard_items.Lock()
-	err = io.EOF
-	for key := range task_heap.available_items {
-		err = nil
-		item = key
-		break
-	}
+	item, err = task_heap.available_items.Get()
 	task_heap.guard_items.Unlock()
 	return
 }
@@ -38,18 +33,19 @@ func (task_heap *TaskHeap[T]) Pick() (item T, err error) {
 // even if the same item gets pushed.
 func (task_heap *TaskHeap[T]) Complete(item T) (completed bool) {
 	task_heap.guard_items.Lock()
-	_, completed = task_heap.available_items[item]
-	delete(task_heap.available_items, item)
-	task_heap.completed_items[item] = struct{}{}
+	completed = task_heap.available_items.Remove(item)
+	task_heap.completed_items.Push(item)
 	task_heap.guard_items.Unlock()
 	return
 }
 
 func (task_heap *TaskHeap[T]) Push(item T) (pushed bool) {
 	task_heap.guard_items.Lock()
-	if _, is_completed := task_heap.completed_items[item]; !is_completed {
-		_, pushed = task_heap.available_items[item]
-		task_heap.available_items[item] = struct{}{}
+	if !task_heap.completed_items.Contains(item) {
+		pushed = task_heap.available_items.Push(item)
+	}
+	if pushed {
+		task_heap.heap_count++
 	}
 	task_heap.guard_items.Unlock()
 	return
@@ -59,32 +55,32 @@ func (task_heap *TaskHeap[T]) Push(item T) (pushed bool) {
 func (task_heap *TaskHeap[T]) Contains(item T) (contains bool) {
 	task_heap.guard_items.Lock()
 	defer task_heap.guard_items.Unlock()
-	_, contains = task_heap.available_items[item]
+	contains = task_heap.available_items.Contains(item)
 	if contains {
 		return
 	}
 
-	_, contains = task_heap.completed_items[item]
+	contains = task_heap.completed_items.Contains(item)
 	return
 }
 
 func (task_heap *TaskHeap[T]) IsCompleted(item T) (completed bool) {
 	task_heap.guard_items.Lock()
-	_, completed = task_heap.completed_items[item]
+	completed = task_heap.completed_items.Contains(item)
 	task_heap.guard_items.Unlock()
 	return
 }
 
 func (task_heap *TaskHeap[T]) IsAvailable(item T) (available bool) {
 	task_heap.guard_items.Lock()
-	_, available = task_heap.available_items[item]
+	available = task_heap.completed_items.Contains(item)
 	task_heap.guard_items.Unlock()
 	return
 }
 
 func (task_heap *TaskHeap[T]) Len() (n int) {
 	task_heap.guard_items.Lock()
-	n = len(task_heap.available_items) + len(task_heap.completed_items)
+	n = int(task_heap.heap_count)
 	task_heap.guard_items.Unlock()
 	return
 }
