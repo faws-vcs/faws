@@ -13,6 +13,8 @@ github.com/faws-vcs/console v0.0.0-20251218021759-3386f477a14f h1:n2Fjch/y6hpaYg
 github.com/faws-vcs/console v0.0.0-20251218021759-3386f477a14f/go.mod h1:a+ZvKQeWszaMu2/uck+lABgKvYJdVlkY3KPpXXvVhFY=
 github.com/faws-vcs/console v0.0.0-20260113130022-ff5333a74929 h1:mGrZ825eXBbBYeXGmH1oa4Yf9UyJjyOB466wXq+bbQg=
 github.com/faws-vcs/console v0.0.0-20260113130022-ff5333a74929/go.mod h1:a+ZvKQeWszaMu2/uck+lABgKvYJdVlkY3KPpXXvVhFY=
+github.com/faws-vcs/console v0.0.0-20260113144549-d142096f604e h1:Z2CPNf7K1/FC0gFxbc/w/iytvTB3d/iNSjwRwevOWpA=
+github.com/faws-vcs/console v0.0.0-20260113144549-d142096f604e/go.mod h1:a+ZvKQeWszaMu2/uck+lABgKvYJdVlkY3KPpXXvVhFY=
 github.com/google/btree v1.1.3 h1:CVpQJjYgC4VbzxeGVHfvZrv1ctoYCAI8vbl07Fcxlyg=
 github.com/google/btree v1.1.3/go.mod h1:qOPhT0dTNdNzV6Z/lhRX0YXUafgPLFUh+gZMl761Gm4=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=

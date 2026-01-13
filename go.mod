@@ -6,7 +6,7 @@ require (
 	github.com/Gophercraft/mpq v0.1.1-0.20250127065928-651347da2df6
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dustin/go-humanize v1.0.1
-	github.com/faws-vcs/console v0.0.0-20260113130022-ff5333a74929
+	github.com/faws-vcs/console v0.0.0-20260113144549-d142096f604e
 	github.com/google/btree v1.1.3
 	github.com/restic/chunker v0.4.1-0.20231001122857-ac4c622f4b08
 	github.com/spf13/cobra v1.9.1
