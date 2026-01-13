@@ -1,3 +1,3 @@
 package tracker
 
-const DefaultURL = "https://fawshub.ikrypto.club"
+const DefaultURL = "https://faws-tracker.ikrypto.club"
