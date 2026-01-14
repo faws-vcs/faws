@@ -58,7 +58,7 @@ func init() {
 	message_id_size_bounds[HaveObject] = size_bound{cas.ContentIDSize, cas.ContentIDSize}
 	message_id_size_bounds[RequestObject] = size_bound{cas.ContentIDSize, cas.ContentIDSize}
 	message_id_size_bounds[Chat] = size_bound{1, 8096}
-	message_id_size_bounds[Object] = size_bound{cas.ContentIDSize + cas.PrefixSize + 1, cas.ContentIDSize + cas.PrefixSize + 1 + 16777217}
+	message_id_size_bounds[Object] = size_bound{cas.ContentIDSize + cas.PrefixSize, cas.ContentIDSize + cas.PrefixSize + 16777217}
 }
 
 func (message_id MessageID) String() (s string) {
