@@ -1,12 +1,10 @@
 package p2p
 
 import (
-	"errors"
-	"io"
+	"math/big"
 	"runtime"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/faws-vcs/console"
 	"github.com/faws-vcs/faws/faws/repo/cas"
@@ -34,7 +32,40 @@ func (pull_job *pull_job) init(subscription *subscription, initial_objects []cas
 	go pull_job.spawn()
 }
 
-func (pull_job *pull_job) worker() (err error) {
+func calc_range(id int, num_workers int) (min, max cas.ContentID) {
+	if id >= num_workers {
+		panic(id)
+	}
+
+	// domain = 2^160-1
+	var domain big.Int
+	domain.Exp(big.NewInt(2), big.NewInt(cas.ContentIDSize*8), nil)
+	domain.Sub(&domain, big.NewInt(1))
+
+	// fraction = domain / num_workers
+	var fraction big.Int
+	fraction.Div(&domain, big.NewInt(int64(num_workers)))
+
+	// lower = fraction * id
+	var lower big.Int
+	lower.Mul(&fraction, big.NewInt(int64(id)))
+
+	// upper = max(domain, fraction * id+1)
+	var upper big.Int
+	upper.Mul(&fraction, big.NewInt(int64(id+1)))
+	var limit big.Int
+	limit.Add(&upper, &fraction)
+	if limit.Cmp(&domain) > 0 {
+		upper = domain
+	}
+
+	copy(min[:], lower.Bytes())
+	copy(max[:], upper.Bytes())
+
+	return
+}
+
+func (pull_job *pull_job) customer_worker(task_channel <-chan cas.ContentID) (err error) {
 	subscription := pull_job.subscription
 
 	var (
@@ -47,42 +78,22 @@ func (pull_job *pull_job) worker() (err error) {
 	// sometimes, on the same object repeatedly.
 	// this may be understood if peers are continuously joining the swarm
 	for {
-		if pull_job.cancel.Load() {
-			return
-		}
-
 		// select a random object
-		object_hash, err = subscription.object_wishlist.Pick()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				err = nil
-			}
+		var ok bool
+		object_hash, ok = <-task_channel
+		if !ok {
 			return
 		}
-
-		load_scale := float64(1) / float64(subscription.object_wishlist.AvailableLen())
-		duration := time.Duration(float64(1500)*load_scale) * time.Millisecond
-		time.Sleep(duration)
-
-		// time.Sleep(time.Millisecond * 100 * time.Duration(rand.Intn(5)))
 
 		// first, check that we have the object.
 		_, err = subscription.repository.StatObject(object_hash)
 		if err == nil {
-			subscription.lock_object(object_hash)
-			if subscription.object_wishlist.IsCompleted(object_hash) {
-				subscription.unlock_object(object_hash)
-				continue
-			}
-			// if we have the object already, process it
+			// if we have the object already, dispatch it to our object receivers
 			object_prefix, object_data, err = pull_job.subscription.repository.LoadObject(object_hash)
 			if err == nil {
-				// treat it like we received it from a peer
-				subscription.receive_object(object_hash, object_prefix, object_data)
-				subscription.unlock_object(object_hash)
+				subscription.dispatch_object(false, object_hash, object_prefix, object_data)
 				continue
 			}
-			subscription.unlock_object(object_hash)
 		}
 		err = nil
 
@@ -92,8 +103,11 @@ func (pull_job *pull_job) worker() (err error) {
 	}
 }
 
-func (pull_job *pull_job) start_worker(error_channel chan<- error) {
-	error_channel <- pull_job.worker()
+func (pull_job *pull_job) spawn_customer(task_channel <-chan cas.ContentID, init_channel chan<- struct{}, error_channel chan<- error) {
+	init_channel <- struct{}{}
+	close(init_channel)
+	error_channel <- pull_job.customer_worker(task_channel)
+	close(error_channel)
 }
 
 func (pull_job *pull_job) spawn() {
@@ -101,19 +115,37 @@ func (pull_job *pull_job) spawn() {
 	pulling_objects.Stage = event.StagePullObjects
 	pull_job.subscription.agent.options.notify(event.NotifyBeginStage, &pulling_objects)
 
-	num_workers := max(runtime.NumCPU()/2, 2)
-	error_channels := make([]chan error, num_workers)
+	task_channel := make(chan cas.ContentID, 1024)
 
-	for i := 0; i < num_workers; i++ {
-		error_channels[i] = make(chan error)
-		go pull_job.start_worker(error_channels[i])
+	// Spawn customers: workers that continuously pick through the heap of available objects
+	// and repeatedly try to negotiate requests for those objects with other peers
+	num_customers := max(runtime.NumCPU()/2, 2)
+	// num_customers := 80
+	customer_error_channels := make([]chan error, num_customers)
+	for i := 0; i < num_customers; i++ {
+		customer_init_channel := make(chan struct{})
+		customer_error_channels[i] = make(chan error)
+		go pull_job.spawn_customer(task_channel, customer_init_channel, customer_error_channels[i])
+		<-customer_init_channel
 	}
+
+	// Pick random items from the wishlist repeatedly and send them to customers
+	for {
+		object, err := pull_job.subscription.object_wishlist.Pick()
+		if err != nil {
+			break
+		}
+
+		task_channel <- object
+	}
+	// once there are no more items, all customers are stopped.
+	close(task_channel)
 
 	pulling_objects.Success = true
 
-	// wait for workers to notice that the queue of tasks is complete
-	for i := 0; i < num_workers; i++ {
-		if err := <-error_channels[i]; err != nil {
+	// wait for customers to stop running
+	for i := 0; i < num_customers; i++ {
+		if err := <-customer_error_channels[i]; err != nil {
 			console.Println(err)
 			pulling_objects.Success = false
 		}

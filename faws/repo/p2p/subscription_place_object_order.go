@@ -1,32 +1,31 @@
 package p2p
 
 import (
-	"math/rand"
-	"time"
+	"math/rand/v2"
 
 	"github.com/faws-vcs/faws/faws/identity"
 	"github.com/faws-vcs/faws/faws/repo/cas"
 )
 
 func (subscription *subscription) gather_candidates_for_object(object_hash cas.ContentID) (candidates []identity.ID, err error) {
-	subscription.guard_peers.Lock()
+	subscription.guard_peers.RLock()
 	for _, peer := range subscription.peers {
-		peer.guard.Lock()
+		peer.guard.RLock()
 		if peer.objects.Contains(object_hash) {
 			candidates = append(candidates, peer.peer_identity)
 		}
-		peer.guard.Unlock()
+		peer.guard.RUnlock()
 	}
-	subscription.guard_peers.Unlock()
+	subscription.guard_peers.RUnlock()
 	return
 }
 
 func (subscription *subscription) broadcast_want_object(object_hash cas.ContentID) {
-	subscription.guard_peers.Lock()
+	subscription.guard_peers.RLock()
 	for _, peer := range subscription.peers {
 		peer.want_object(object_hash)
 	}
-	subscription.guard_peers.Unlock()
+	subscription.guard_peers.RUnlock()
 }
 
 // try to request an object from the network
@@ -39,7 +38,7 @@ func (subscription *subscription) place_object_order(object_hash cas.ContentID) 
 		return
 	}
 	// shuffle list of peers. This doesn't have to be perfect, we just have to occasionally send requests to new peers
-	rand.New(rand.NewSource(time.Now().UnixNano())).Shuffle(len(candidates), func(i, j int) {
+	rand.Shuffle(len(candidates), func(i, j int) {
 		candidates[i], candidates[j] = candidates[j], candidates[i]
 	})
 

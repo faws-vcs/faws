@@ -1,6 +1,8 @@
 package queue
 
-import "io"
+import (
+	"io"
+)
 
 type UnorderedSet[T comparable] struct {
 	items map[T]struct{}

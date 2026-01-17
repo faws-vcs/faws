@@ -18,7 +18,7 @@ type peer struct {
 
 	peer_identity identity.ID
 
-	guard sync.Mutex
+	guard sync.RWMutex
 
 	// objects this peer contains
 	objects queue.UnorderedSet[cas.ContentID]
@@ -48,14 +48,14 @@ func (subscription *subscription) add_peer(peer_identity identity.ID) (peer_ *pe
 }
 
 func (subscription *subscription) get_peer(peer_identity identity.ID) (peer_ *peer, err error) {
-	subscription.guard_peers.Lock()
+	subscription.guard_peers.RLock()
 	var exists bool
 	peer_, exists = subscription.peers[peer_identity]
 	if !exists {
 		err = ErrSubscriptonPeerNotFound
 		return
 	}
-	subscription.guard_peers.Unlock()
+	subscription.guard_peers.RUnlock()
 	return
 }
 

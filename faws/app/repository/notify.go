@@ -164,8 +164,8 @@ func notify(ev event.Notification, params *event.NotifyParams) {
 		scrn.connected_peers++
 		// app.Info("connected to peer", params.ID)
 	case event.NotifyPeerDisconnected:
-		scrn.connected_peers++
 		// app.Info("disconnected from", params.ID)
+		scrn.connected_peers--
 	}
 	guard.Unlock()
 
@@ -263,14 +263,14 @@ func render_activity_screen(hud *console.Hud) {
 		usage_text.Add(fmt.Sprintf("%d/%d objects received, %s total", scrn.objects_received, scrn.objects_in_queue, humanize.Bytes(scrn.bytes_received)), 0, 0)
 		hud.Line(&usage_text)
 
-		if scrn.objects_received > 0 {
-			var last_object_text console.Text
-			last_object_text.Stylesheet.Margin[console.Left] = 1
-			last_object_text.Stylesheet.Width = console.Width()
-			last_object_text.Add(prefix(scrn.last_object_prefix), console.Black, console.White)
-			last_object_text.Add(fmt.Sprintf(" %s %s", scrn.last_object_hash, humanize.Bytes(scrn.last_object_size)), 0, 0)
-			hud.Line(&last_object_text)
-		}
+		// if scrn.objects_received > 0 {
+		// 	var last_object_text console.Text
+		// 	last_object_text.Stylesheet.Margin[console.Left] = 1
+		// 	last_object_text.Stylesheet.Width = console.Width()
+		// 	last_object_text.Add(prefix(scrn.last_object_prefix), console.Black, console.White)
+		// 	last_object_text.Add(fmt.Sprintf(" %s %s", scrn.last_object_hash, humanize.Bytes(scrn.last_object_size)), 0, 0)
+		// 	hud.Line(&last_object_text)
+		// }
 
 		progress_bar.Stylesheet.Width = console.Width()
 		progress_bar.Progress = float64(scrn.objects_received) / float64(scrn.objects_in_queue)

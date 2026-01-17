@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"bytes"
+	"runtime"
 	"sync"
 	"time"
 
@@ -14,23 +15,32 @@ import (
 type subscription struct {
 	agent *Agent
 
+	// a peer is tracked here once it connects from the peernet. Pretty simple.
+	guard_peers sync.RWMutex
+	peers       map[identity.ID]*peer
+
+	// here the job is placed
+	guard_job sync.Mutex
+	job       subscription_job
+
+	// stores the most recent version of the manifest
 	guard_manifest sync.RWMutex
 	manifest_bytes []byte
 	manifest_info  tracker.ManifestInfo
 	manifest_time  time.Time
 
+	// the topic of the subscription. its UUID has to match the repository
 	topic      tracker.Topic
 	repository Repository
 
-	guard_job       sync.Mutex
-	job             subscription_job
-	object_wishlist queue.TaskHeap[cas.ContentID]
+	object_server_channels       []chan object_request
+	object_server_error_channels []chan error
 
-	guard_peers sync.Mutex
-	peers       map[identity.ID]*peer
-
-	object_lock  sync.Mutex
-	object_locks map[[8]byte]*sync.Mutex
+	// all the objects we wanted
+	object_wishlist                queue.TaskHeap[cas.ContentID]
+	object_receiver_channels       []chan named_object
+	object_receiver_error_channels []chan error
+	shutdown_channel               chan struct{}
 }
 
 func (subscription *subscription) init(agent *Agent, topic tracker.Topic, repository Repository) (err error) {
@@ -40,7 +50,58 @@ func (subscription *subscription) init(agent *Agent, topic tracker.Topic, reposi
 
 	subscription.object_wishlist.Init()
 	subscription.peers = make(map[identity.ID]*peer)
-	subscription.object_locks = make(map[[8]byte]*sync.Mutex)
+
+	// Spawn servers: workers that receive incoming requests and process them
+	num_servers := max(runtime.NumCPU()/2, 2)
+	subscription.object_server_error_channels = make([]chan error, num_servers)
+	subscription.object_server_channels = make([]chan object_request, num_servers)
+	for i := 0; i < num_servers; i++ {
+		object_server_error_channel := make(chan error)
+		object_server_channel := make(chan object_request, 512)
+		subscription.object_server_channels[i] = object_server_channel
+		go subscription.spawn_object_server(object_server_error_channel, object_server_channel)
+	}
+
+	// Spawn receivers: workers that receive objects as they come in
+	num_receivers := max(runtime.NumCPU()/2, 2)
+	subscription.object_receiver_error_channels = make([]chan error, num_receivers)
+	subscription.object_receiver_channels = make([]chan named_object, num_receivers)
+	for i := 0; i < num_receivers; i++ {
+		object_receiver_error_channel := make(chan error)
+		object_receiver_channel := make(chan named_object, 1)
+		subscription.object_receiver_channels[i] = object_receiver_channel
+		go subscription.spawn_object_receiver(object_receiver_error_channel, object_receiver_channel)
+	}
+	subscription.shutdown_channel = make(chan struct{})
+
+	go func() {
+		<-subscription.shutdown_channel
+		// stop the job
+		subscription.guard_job.Lock()
+		if subscription.job != nil {
+			subscription.job.Cancel()
+		}
+		subscription.guard_job.Unlock()
+		// stop the server workers
+		for _, object_server_channel := range subscription.object_server_channels {
+			close(object_server_channel)
+		}
+		// receive errors from stopped workers
+		for _, object_server_error_channel := range subscription.object_server_error_channels {
+			<-object_server_error_channel
+		}
+
+		// stop the receiver workers
+		for _, object_receiver_channel := range subscription.object_receiver_channels {
+			close(object_receiver_channel)
+		}
+		// receive errors from stopped workers
+		for _, object_receiver_error_channel := range subscription.object_receiver_error_channels {
+			<-object_receiver_error_channel
+		}
+
+	}()
+
 	// subscribe to other peers
 	subscription.agent.peernet_client.Subscribe(topic)
 
@@ -48,11 +109,8 @@ func (subscription *subscription) init(agent *Agent, topic tracker.Topic, reposi
 }
 
 func (subscription *subscription) shutdown() {
-	subscription.guard_job.Lock()
-	if subscription.job != nil {
-		subscription.job.Cancel()
-	}
-	subscription.guard_job.Unlock()
+	subscription.shutdown_channel <- struct{}{}
+	close(subscription.shutdown_channel)
 }
 
 // refreshes the manifest and queues

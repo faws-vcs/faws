@@ -64,5 +64,9 @@ func (set *Set) Store(prefix Prefix, data []byte) (new bool, id ContentID, err e
 
 	// mv file.part file
 	err = os.Rename(part_path, path)
+	if err != nil {
+		return
+	}
+
 	return
 }

@@ -49,12 +49,10 @@ type peer_connection struct {
 	// our WebRTC connection to the peer
 	connection *webrtc.PeerConnection
 	//
-	write_lock   sync.Mutex
-	read_lock    sync.Mutex
-	data_channel *webrtc.DataChannel
-	// data_channel datachannel.ReadWriteCloser
-	expected_bytes  uint32
-	current_message *bytes.Buffer
+	write_lock            sync.Mutex
+	read_lock             sync.Mutex
+	data_channel          *webrtc.DataChannel
+	incoming_data_channel chan []byte
 	//
 	state atomic.Int32
 	//
@@ -194,6 +192,68 @@ func (peer_connection *peer_connection) set_state(state int32) {
 	}
 }
 
+func (peer_connection *peer_connection) handle_incoming_data() {
+	var (
+		expected_bytes int
+		buffer         *bytes.Buffer
+	)
+
+	for {
+		data, ok := <-peer_connection.incoming_data_channel
+		if !ok {
+			return
+		}
+
+	process_data:
+		for {
+			if expected_bytes == 0 {
+				// read header
+				if len(data) < 5 {
+					console.Println("peer sent message without valid header", len(data))
+					peer_connection.close()
+					return
+				}
+				var header [5]byte
+				copy(header[:], data[:5])
+
+				expected_bytes = int(binary.LittleEndian.Uint32(header[:4]))
+				if expected_bytes == 0 {
+					console.Println("peer sent empty message")
+					peer_connection.close()
+					return
+				}
+				message_id := MessageID(header[4])
+
+				if err := validate_message_header(uint32(expected_bytes)-1, message_id); err != nil {
+					console.Println("peer sent invalid", err)
+					peer_connection.close()
+					return
+				}
+
+				data = data[5:]
+				buffer = new(bytes.Buffer)
+				buffer.Grow(expected_bytes + 1)
+				buffer.Write(header[4:])
+			}
+
+			fragment_size := min(len(data), (expected_bytes - buffer.Len()))
+			buffer.Write(data[:fragment_size])
+			data = data[fragment_size:]
+
+			if buffer.Len() == expected_bytes {
+				buffer_bytes := buffer.Bytes()
+				peer_connection.topic_channel.client.channel_message_handler(peer_connection.topic_channel.topic, peer_connection.peer, MessageID(buffer_bytes[0]), buffer_bytes[1:])
+				buffer = nil
+				expected_bytes = 0
+			}
+
+			if len(data) == 0 {
+				break process_data
+			}
+		}
+	}
+}
+
 func (peer_connection *peer_connection) create_data_channel() {
 	var (
 		data_channel_init webrtc.DataChannelInit
@@ -207,6 +267,8 @@ func (peer_connection *peer_connection) create_data_channel() {
 	if err == nil {
 		data_channel.OnOpen(func() {
 			peer_connection.set_state(PeerConnected)
+			peer_connection.incoming_data_channel = make(chan []byte)
+			go peer_connection.handle_incoming_data()
 		})
 		// data channel message arrives in-order, but fragmented.
 		// since data channels are limited to a particular size (~16KB)
@@ -214,100 +276,18 @@ func (peer_connection *peer_connection) create_data_channel() {
 		// theoretically we can just use the pion Detach API but...
 		// it's got some annoying quirks I'm not a fan of
 		data_channel.OnMessage(func(data_channel_message webrtc.DataChannelMessage) {
-			peer_connection.handle_message_packet(data_channel_message.Data)
+			peer_connection.handle_message_fragment(data_channel_message.Data)
 		})
 		data_channel.OnClose(func() {
 			peer_connection.set_state(PeerDisconnected)
+			close(peer_connection.incoming_data_channel)
 		})
 	}
 	peer_connection.data_channel = data_channel
 }
 
-func (peer_connection *peer_connection) handle_message_packet(fragment []byte) {
-	peer_connection.read_lock.Lock()
-	// console.Println("received message packet", spew.Sdump(fragment))
-	err := peer_connection.handle_message_fragment(fragment)
-	if err != nil {
-		console.Println("error handling message packet", err)
-	}
-	peer_connection.read_lock.Unlock()
-}
-
-func (peer_connection *peer_connection) handle_message_fragment(fragment []byte) (err error) {
-	if len(fragment) == 0 {
-		return
-	}
-
-	fragment_size := uint32(len(fragment))
-	if peer_connection.expected_bytes > 0 {
-		if peer_connection.expected_bytes > fragment_size {
-			peer_connection.current_message.Write(fragment)
-			peer_connection.expected_bytes -= fragment_size
-			return
-		} else if peer_connection.expected_bytes == fragment_size {
-			// received message!
-			message_buffer := peer_connection.current_message
-
-			peer_connection.current_message.Write(fragment)
-
-			peer_connection.expected_bytes = 0
-			peer_connection.current_message = nil
-
-			message := message_buffer.Bytes()
-			message_id := MessageID(message[0])
-			message = message[1:]
-
-			peer_connection.topic_channel.client.channel_message_handler(peer_connection.topic_channel.topic, peer_connection.peer, message_id, message)
-
-			return
-		} else if peer_connection.expected_bytes < fragment_size {
-			// received message + extra fragment
-			message_buffer := peer_connection.current_message
-
-			peer_connection.current_message.Write(fragment[:peer_connection.expected_bytes])
-			fragment = fragment[peer_connection.expected_bytes:]
-
-			peer_connection.expected_bytes = 0
-			peer_connection.current_message = nil
-
-			message := message_buffer.Bytes()
-			message_id := MessageID(message[0])
-			message = message[1:]
-
-			peer_connection.topic_channel.client.channel_message_handler(peer_connection.topic_channel.topic, peer_connection.peer, message_id, message)
-
-			err = peer_connection.handle_message_fragment(fragment)
-			return
-		}
-	}
-
-	// this is a badly formatted fragment, < 4 is invalid, and each message must have 1 byte for message id
-	if fragment_size < 5 {
-		err = ErrInvalidMessageSize
-		return
-	}
-
-	peer_connection.expected_bytes = binary.LittleEndian.Uint32(fragment[:4])
-	if peer_connection.expected_bytes < 1 {
-		err = ErrInvalidMessageSize
-		return
-	}
-
-	fragment = fragment[4:]
-
-	peer_connection.current_message = new(bytes.Buffer)
-	peer_connection.current_message.Write(fragment[0:1])
-	message_id := MessageID(fragment[0])
-	fragment = fragment[1:]
-
-	peer_connection.expected_bytes--
-
-	if err = validate_message_header(peer_connection.expected_bytes, message_id); err != nil {
-		return
-	}
-
-	err = peer_connection.handle_message_fragment(fragment)
-	return
+func (peer_connection *peer_connection) handle_message_fragment(fragment []byte) {
+	peer_connection.incoming_data_channel <- fragment
 }
 
 const maximum_fragment_size = 16384

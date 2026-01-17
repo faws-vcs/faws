@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	fawsfs "github.com/faws-vcs/faws/faws/fs"
 )
@@ -13,6 +14,8 @@ import (
 // Open will start using a directory to contain the [Set]. If a directory does not exist at path, one will be created.
 // [Close] must be called when the [Set] is no longer in use.
 func (set *Set) Open(path string) (err error) {
+	path = strings.TrimRight(path, "\\/")
+
 	set_fi, stat_err := os.Stat(path)
 	if stat_err != nil {
 		if !errors.Is(stat_err, fs.ErrNotExist) {
@@ -41,5 +44,6 @@ func (set *Set) Open(path string) (err error) {
 	os.Remove(test_path)
 
 	set.directory = path
+
 	return
 }

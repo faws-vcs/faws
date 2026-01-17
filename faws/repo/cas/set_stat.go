@@ -1,9 +1,6 @@
 package cas
 
-import (
-	"fmt"
-	"os"
-)
+import "os"
 
 // Stat tests the existence of an object named by the [ContentID], and returns its size if it does exist.
 // If it does not exist, err will be [ErrObjectNotFound].
@@ -19,7 +16,7 @@ func (set *Set) Stat(id ContentID) (size int64, err error) {
 
 	fi, err = os.Stat(path)
 	if err != nil {
-		err = fmt.Errorf("%w: %s", ErrObjectNotFound, id)
+		err = object_error{ErrObjectNotFound, id}
 		return
 	}
 	size = fi.Size() - 4

@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+
+	"github.com/faws-vcs/console"
 )
 
 // ListFunc is a callback for enumerating objects in the repository
@@ -18,6 +20,7 @@ func (set *Set) List(fn ListFunc) (err error) {
 	var name_err error
 	buckets, err = os.ReadDir(set.directory)
 	if err != nil {
+		console.Println(set.directory)
 		return
 	}
 
