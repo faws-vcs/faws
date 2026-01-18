@@ -17,8 +17,9 @@ type agent_options struct {
 	// URL of the tracker server
 	tracker_url string
 	// If true, forces the use of a TURN server
-	use_turn bool
-	notify   event.NotifyFunc
+	use_turn            bool
+	notify              event.NotifyFunc
+	requests_per_second int64
 }
 
 type Option func(*agent_options)

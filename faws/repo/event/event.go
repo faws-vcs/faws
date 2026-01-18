@@ -3,6 +3,7 @@ package event
 import (
 	"github.com/faws-vcs/faws/faws/identity"
 	"github.com/faws-vcs/faws/faws/repo/cas"
+	"github.com/faws-vcs/faws/faws/repo/p2p/peernet"
 )
 
 // A Notification signifies different types of repository events
@@ -29,6 +30,9 @@ const (
 	// p2p
 	NotifyPeerConnected
 	NotifyPeerDisconnected
+	NotifyPeerNetMessage
+	NotifyPeerObjectUpload
+	NotifyPeerObjectDuplicateDownload
 )
 
 // A Stage represents a phase of operations within the repository, typically one that can take quite a long time.
@@ -45,6 +49,7 @@ const (
 	StagePullTags
 	StagePullObjects
 	StageCheckout
+	StageServeObjects
 )
 
 // NotifyParams are extra information parameters shared along with the Notification
@@ -67,6 +72,8 @@ type NotifyParams struct {
 	Child bool
 	//
 	ID identity.ID
+	//
+	MessageID peernet.MessageID
 }
 
 // A NotifyFunc can be supplied to repo.Repository.Open to get notifications about the repository's actions

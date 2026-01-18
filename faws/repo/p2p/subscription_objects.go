@@ -7,6 +7,7 @@ import (
 	"github.com/faws-vcs/console"
 	"github.com/faws-vcs/faws/faws/identity"
 	"github.com/faws-vcs/faws/faws/repo/cas"
+	"github.com/faws-vcs/faws/faws/repo/event"
 	"github.com/faws-vcs/faws/faws/repo/p2p/peernet"
 )
 
@@ -46,20 +47,28 @@ func (subscription *subscription) handle_peer_object(peer_identity identity.ID, 
 		// this is an unmistakable violation of protocol.
 		// the peer should be permanently banned, and probably their IP too.
 		// subscription.apply_peer_penalty(peer, time.Hour, penalize_ip_address=true)
+		console.Println("peer sent object not in wishlist")
 		return
 	}
 
 	if subscription.object_wishlist.IsCompleted(object_hash) {
+		var duplicate_download event.NotifyParams
+		duplicate_download.Object1 = object_hash
+		duplicate_download.Prefix = object_prefix
+		duplicate_download.Count = int64(len(object_data))
+
+		subscription.agent.options.notify(event.NotifyPeerObjectDuplicateDownload, &duplicate_download)
 		return
 	}
 
 	peer.guard.RLock()
-	requested := peer.outgoing_requested_objects.Contains(object_hash)
+	_, requested := peer.outgoing_requested_objects[object_hash]
 	peer.guard.RUnlock()
 
 	if !requested {
 		// this may also be a violation of protocol, or a simple data race.
 		// peers may be providing objects we requested, but simply too late (busy hard drive, slow internet connection)
+		console.Println("peer sent unrequested object")
 		return
 	}
 
@@ -95,5 +104,12 @@ func (subscription *subscription) handle_peer_request_object(peer identity.ID, o
 	buffer.Write(object_prefix[:])
 	buffer.Write(object_data)
 
-	subscription.agent.peernet_client.Send(subscription.topic, peer, peernet.Object, buffer.Bytes())
+	err = subscription.agent.peernet_client.Send(subscription.topic, peer, peernet.Object, buffer.Bytes())
+
+	if err == nil {
+		var upload event.NotifyParams
+		upload.Object1 = object_hash
+		upload.Count = int64(len(object_data))
+		subscription.agent.options.notify(event.NotifyPeerObjectUpload, &upload)
+	}
 }

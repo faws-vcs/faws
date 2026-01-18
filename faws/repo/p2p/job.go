@@ -105,7 +105,7 @@ func (agent *Agent) Seed(topic tracker.Topic) (job Job, err error) {
 	}
 
 	seed_job_ := new(seed_job)
-	seed_job_.init()
+	seed_job_.init(subscription)
 
 	subscription.set_current_job(seed_job_)
 	job = seed_job_

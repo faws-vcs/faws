@@ -49,6 +49,7 @@ func (subscription *subscription) place_object_order(object_hash cas.ContentID) 
 	for _, candidate_id := range candidates {
 		candidate, candidate_err := subscription.get_peer(candidate_id)
 		if candidate_err == nil {
+			<-subscription.object_request_limiter.C
 			if candidate.request_object(object_hash) {
 				break
 			}

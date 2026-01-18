@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/faws-vcs/console"
 	"github.com/faws-vcs/faws/faws/identity"
 	"github.com/faws-vcs/faws/faws/repo/cas"
 	"github.com/faws-vcs/faws/faws/repo/p2p/peernet"
@@ -11,7 +12,10 @@ import (
 )
 
 // how long to wait before sending another want request
-var want_ttl = time.Minute
+var (
+	want_ttl    = time.Minute
+	request_ttl = time.Hour * 10
+)
 
 type peer struct {
 	subscription *subscription
@@ -27,7 +31,7 @@ type peer struct {
 	outgoing_wanted_objects map[cas.ContentID]time.Time
 
 	// objects we requested
-	outgoing_requested_objects queue.UnorderedSet[cas.ContentID]
+	outgoing_requested_objects map[cas.ContentID]time.Time
 }
 
 func (subscription *subscription) add_peer(peer_identity identity.ID) (peer_ *peer) {
@@ -39,7 +43,7 @@ func (subscription *subscription) add_peer(peer_identity identity.ID) (peer_ *pe
 		peer_.peer_identity = peer_identity
 		peer_.subscription = subscription
 		peer_.outgoing_wanted_objects = make(map[cas.ContentID]time.Time)
-		peer_.outgoing_requested_objects.Init()
+		peer_.outgoing_requested_objects = make(map[cas.ContentID]time.Time)
 		peer_.objects.Init()
 		subscription.peers[peer_identity] = peer_
 	}
@@ -90,11 +94,18 @@ func (peer *peer) want_object(object_hash cas.ContentID) {
 func (peer *peer) request_object(object_hash cas.ContentID) (requested bool) {
 	peer.guard.Lock()
 	defer peer.guard.Unlock()
+	subscription := peer.subscription
 
-	if !peer.outgoing_requested_objects.Contains(object_hash) {
-		err := peer.subscription.agent.peernet_client.Send(peer.subscription.topic, peer.peer_identity, peernet.RequestObject, object_hash[:])
+	now := time.Now()
+
+	time_, already_requested := peer.outgoing_requested_objects[object_hash]
+	if already_requested && now.Sub(time_) > request_ttl || !already_requested {
+		if already_requested {
+			console.Println("re-requesting", object_hash)
+		}
+		err := subscription.agent.peernet_client.Send(subscription.topic, peer.peer_identity, peernet.RequestObject, object_hash[:])
 		if err == nil {
-			peer.outgoing_requested_objects.Push(object_hash)
+			peer.outgoing_requested_objects[object_hash] = now
 			requested = true
 		}
 	}

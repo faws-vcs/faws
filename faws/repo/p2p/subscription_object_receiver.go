@@ -72,7 +72,7 @@ func (subscription *subscription) process_object(object_hash cas.ContentID, obje
 	subscription.guard_peers.RLock()
 	for _, peer := range subscription.peers {
 		peer.guard.Lock()
-		peer.outgoing_requested_objects.Remove(object_hash)
+		delete(peer.outgoing_requested_objects, object_hash)
 		delete(peer.outgoing_wanted_objects, object_hash)
 		peer.guard.Unlock()
 	}

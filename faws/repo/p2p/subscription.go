@@ -38,6 +38,7 @@ type subscription struct {
 
 	// all the objects we wanted
 	object_wishlist                queue.TaskHeap[cas.ContentID]
+	object_request_limiter         *time.Ticker
 	object_receiver_channels       []chan named_object
 	object_receiver_error_channels []chan error
 	shutdown_channel               chan struct{}
@@ -49,6 +50,7 @@ func (subscription *subscription) init(agent *Agent, topic tracker.Topic, reposi
 	subscription.repository = repository
 
 	subscription.object_wishlist.Init()
+	subscription.object_request_limiter = time.NewTicker(time.Second / time.Duration(agent.options.requests_per_second))
 	subscription.peers = make(map[identity.ID]*peer)
 
 	// Spawn servers: workers that receive incoming requests and process them
@@ -82,6 +84,7 @@ func (subscription *subscription) init(agent *Agent, topic tracker.Topic, reposi
 			subscription.job.Cancel()
 		}
 		subscription.guard_job.Unlock()
+		subscription.object_request_limiter.Stop()
 		// stop the server workers
 		for _, object_server_channel := range subscription.object_server_channels {
 			close(object_server_channel)

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -53,6 +55,7 @@ type peer_connection struct {
 	read_lock             sync.Mutex
 	data_channel          *webrtc.DataChannel
 	incoming_data_channel chan []byte
+	outgoing_data_channel chan []byte
 	//
 	state atomic.Int32
 	//
@@ -225,15 +228,15 @@ func (peer_connection *peer_connection) handle_incoming_data() {
 				message_id := MessageID(header[4])
 
 				if err := validate_message_header(uint32(expected_bytes)-1, message_id); err != nil {
-					console.Println("peer sent invalid", err)
+					console.Println("peer sent invalid header", err, len(data))
 					peer_connection.close()
 					return
 				}
 
 				data = data[5:]
 				buffer = new(bytes.Buffer)
-				buffer.Grow(expected_bytes + 1)
-				buffer.Write(header[4:])
+				buffer.Grow(expected_bytes)
+				buffer.WriteByte(byte(message_id))
 			}
 
 			fragment_size := min(len(data), (expected_bytes - buffer.Len()))
@@ -254,6 +257,18 @@ func (peer_connection *peer_connection) handle_incoming_data() {
 	}
 }
 
+func (peer_connection *peer_connection) handle_outgoing_data() {
+	for {
+		fragment, ok := <-peer_connection.outgoing_data_channel
+		if !ok {
+			return
+		}
+		if err := peer_connection.data_channel.Send(fragment); err != nil {
+			return
+		}
+	}
+}
+
 func (peer_connection *peer_connection) create_data_channel() {
 	var (
 		data_channel_init webrtc.DataChannelInit
@@ -266,8 +281,10 @@ func (peer_connection *peer_connection) create_data_channel() {
 	data_channel, err = peer_connection.connection.CreateDataChannel("faws peernet v1", &data_channel_init)
 	if err == nil {
 		data_channel.OnOpen(func() {
+			peer_connection.incoming_data_channel = make(chan []byte, 64)
+			peer_connection.outgoing_data_channel = make(chan []byte, 128)
 			peer_connection.set_state(PeerConnected)
-			peer_connection.incoming_data_channel = make(chan []byte)
+			go peer_connection.handle_outgoing_data()
 			go peer_connection.handle_incoming_data()
 		})
 		// data channel message arrives in-order, but fragmented.
@@ -281,6 +298,10 @@ func (peer_connection *peer_connection) create_data_channel() {
 		data_channel.OnClose(func() {
 			peer_connection.set_state(PeerDisconnected)
 			close(peer_connection.incoming_data_channel)
+			peer_connection.write_lock.Lock()
+			close(peer_connection.outgoing_data_channel)
+			peer_connection.outgoing_data_channel = nil
+			peer_connection.write_lock.Unlock()
 		})
 	}
 	peer_connection.data_channel = data_channel
@@ -297,30 +318,26 @@ func (peer_connection *peer_connection) send(message_id MessageID, message []byt
 		peer_connection.write_lock.Lock()
 		defer peer_connection.write_lock.Unlock()
 
-		// build full message buffer
-		// TODO: a more efficient mechanism would be wise here
+		if peer_connection.outgoing_data_channel == nil {
+			err = errors.New("faws/repo/p2p/peernet: cannot send to disconnected peer")
+			return
+		}
+
 		var message_header [5]byte
 		binary.LittleEndian.PutUint32(message_header[:], uint32(len(message)+1))
 		message_header[4] = byte(message_id)
-		var message_buffer bytes.Buffer
-		message_buffer.Write(message_header[:])
-		message_buffer.Write(message[:])
 
-		message_full := message_buffer.Bytes()
+		full_message := append(message_header[:], message...)
 
 		// break message into fragments
-		fragment_count := (uint32(message_buffer.Len()) / maximum_fragment_size) + 1
-
-		for i := uint32(0); i < fragment_count; i++ {
-			lower := i * maximum_fragment_size
-			upper := (i + 1) * maximum_fragment_size
-			upper = min(uint32(len(message_full)), upper)
-			if err = peer_connection.data_channel.Send(message_full[lower:upper]); err != nil {
-				return
-			}
+		for fragment := range slices.Chunk(full_message, maximum_fragment_size) {
+			// if err = peer_connection.data_channel.Send(fragment); err != nil {
+			// 	return
+			// }
+			peer_connection.outgoing_data_channel <- fragment[:]
 		}
 	} else {
-		console.Println("not active!")
+		err = errors.New("faws/repo/p2p/peernet: cannot send to disconnected peer")
 	}
 	return
 }
@@ -329,5 +346,4 @@ func (peer_connection *peer_connection) close() {
 	peer_connection.data_channel.Close()
 	peer_connection.connection.Close()
 	peer_connection.set_state(PeerDisconnected)
-
 }

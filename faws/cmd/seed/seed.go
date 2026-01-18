@@ -20,6 +20,7 @@ var seed_cmd = cobra.Command{
 func init() {
 	flag := seed_cmd.Flags()
 	flag.StringP("sign", "s", "", "use a signing identity to identify yourself with the P2P network")
+	flag.BoolP("quiet", "q", false, "shut up the interactive Hud")
 	root.RootCmd.AddCommand(&seed_cmd)
 }
 
@@ -43,6 +44,11 @@ func run_seed_cmd(cmd *cobra.Command, args []string) {
 	flag := cmd.Flags()
 	params.TrackerURL = os.Getenv("FAWS_TRACKER")
 	params.Sign, err = flag.GetString("sign")
+	if err != nil {
+		app.Fatal(err)
+		return
+	}
+	params.Quiet, err = flag.GetBool("quiet")
 	if err != nil {
 		app.Fatal(err)
 		return

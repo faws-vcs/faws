@@ -13,6 +13,7 @@ type PullParams struct {
 	// If len(refs) == 0, download all tags from the origin
 	Tags    bool
 	Verbose bool
+	Quiet   bool
 }
 
 // Pull is the implementation of the command "faws pull"
@@ -23,6 +24,7 @@ func Pull(params *PullParams) {
 		TrackerURL = params.TrackerURL
 	}
 
+	quiet = params.Quiet
 	app.Open()
 	defer func() {
 		app.Close()

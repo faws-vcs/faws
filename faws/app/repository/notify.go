@@ -11,16 +11,18 @@ import (
 	"github.com/faws-vcs/faws/faws/app"
 	"github.com/faws-vcs/faws/faws/repo/cas"
 	"github.com/faws-vcs/faws/faws/repo/event"
+	"github.com/faws-vcs/faws/faws/repo/p2p/peernet"
 )
 
 var (
 	stages_text = map[event.Stage]string{
-		event.StagePullObjects: "Retrieve objects",
-		event.StagePullTags:    "Retrieve tags",
-		event.StageCacheFiles:  "Cache files",
-		event.StageCacheFile:   "Cache file",
-		event.StageWriteTree:   "Write tree",
-		event.StageCheckout:    "Checkout",
+		event.StagePullObjects:  "Retrieve objects",
+		event.StagePullTags:     "Retrieve tags",
+		event.StageCacheFiles:   "Cache files",
+		event.StageCacheFile:    "Cache file",
+		event.StageWriteTree:    "Write tree",
+		event.StageCheckout:     "Checkout",
+		event.StageServeObjects: "Distribute objects",
 	}
 
 	scrn activity_screen
@@ -53,6 +55,12 @@ type activity_screen struct {
 	current_file_name     string
 
 	connected_peers int
+
+	received_messages              int64
+	last_message_id                peernet.MessageID
+	object_uploads                 int64
+	duplicate_object_downloads     int64
+	duplicate_object_download_size uint64
 
 	verbose bool
 }
@@ -166,6 +174,14 @@ func notify(ev event.Notification, params *event.NotifyParams) {
 	case event.NotifyPeerDisconnected:
 		// app.Info("disconnected from", params.ID)
 		scrn.connected_peers--
+	case event.NotifyPeerNetMessage:
+		scrn.received_messages++
+		scrn.last_message_id = params.MessageID
+	case event.NotifyPeerObjectUpload:
+		scrn.object_uploads++
+	case event.NotifyPeerObjectDuplicateDownload:
+		scrn.duplicate_object_downloads++
+		scrn.duplicate_object_download_size += uint64(params.Count)
 	}
 	guard.Unlock()
 
@@ -230,6 +246,21 @@ func render_activity_screen(hud *console.Hud) {
 		return
 	}
 
+	// if scrn.received_messages > 0 {
+	// 	var received_messages_text console.Text
+	// 	received_messages_text.Stylesheet.Width = console.Width()
+	// 	received_messages_text.Add(fmt.Sprintf("%d messages received. last message id: %s", scrn.received_messages, scrn.last_message_id), 0, 0)
+	// 	hud.Line(&received_messages_text)
+	// }
+
+	if scrn.connected_peers > 0 {
+		var peers_text console.Text
+		peers_text.Stylesheet.Margin[console.Left] = 1
+		peers_text.Stylesheet.Width = console.Width()
+		peers_text.Add(fmt.Sprintf("%d peers connected", scrn.connected_peers), 0, 0)
+		hud.Line(&peers_text)
+	}
+
 	var progress_bar console.ProgressBar
 	progress_bar.Stylesheet.Sequence[console.PbCaseLeft] = console.Cell{'[', 0, 0}
 	progress_bar.Stylesheet.Sequence[console.PbCaseRight] = console.Cell{']', 0, 0}
@@ -249,18 +280,23 @@ func render_activity_screen(hud *console.Hud) {
 		progress_bar.Progress = float64(scrn.tags_received) / float64(scrn.tags_in_queue)
 		hud.Line(&progress_bar)
 	case event.StagePullObjects:
-		if scrn.connected_peers > 0 {
-			var peers_text console.Text
-			peers_text.Stylesheet.Margin[console.Left] = 1
-			peers_text.Stylesheet.Width = console.Width()
-			peers_text.Add(fmt.Sprintf("%d peers connected", scrn.connected_peers), 0, 0)
-			hud.Line(&peers_text)
+
+		if scrn.duplicate_object_downloads > 0 {
+			var duplicate_objects_text console.Text
+			duplicate_objects_text.Stylesheet.Margin[console.Left] = 1
+			duplicate_objects_text.Stylesheet.Width = console.Width()
+			duplicate_objects_text.Add(
+				fmt.Sprintf("%d duplicate objects downloaded (%s wasted)", scrn.duplicate_object_downloads, humanize.Bytes(scrn.duplicate_object_download_size)),
+				console.BrightYellow,
+				0,
+			)
+			hud.Line(&duplicate_objects_text)
 		}
 
 		var usage_text console.Text
 		usage_text.Stylesheet.Width = console.Width()
 		usage_text.Stylesheet.Margin[console.Left] = 1
-		usage_text.Add(fmt.Sprintf("%d/%d objects received, %s total", scrn.objects_received, scrn.objects_in_queue, humanize.Bytes(scrn.bytes_received)), 0, 0)
+		usage_text.Add(fmt.Sprintf("%d/%d objects processed, %s total", scrn.objects_received, scrn.objects_in_queue, humanize.Bytes(scrn.bytes_received)), 0, 0)
 		hud.Line(&usage_text)
 
 		// if scrn.objects_received > 0 {
@@ -305,5 +341,10 @@ func render_activity_screen(hud *console.Hud) {
 
 		hud.Line(&file_name_text)
 		hud.Line(&progress_text, &progress_bar)
+	case event.StageServeObjects:
+		var object_upload_count_text console.Text
+		object_upload_count_text.Stylesheet.Width = console.Width()
+		object_upload_count_text.Add(fmt.Sprintf("%d objects uploaded", scrn.object_uploads), 0, 0)
+		hud.Line(&object_upload_count_text)
 	}
 }
