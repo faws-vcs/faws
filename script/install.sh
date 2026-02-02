@@ -36,7 +36,6 @@ setup_bash_completion() {
     sudo mkdir -p /etc/bash_completion.d
     /usr/local/bin/faws completion bash | sudo tee /etc/bash_completion.d/faws.sh > /dev/null
     sudo chmod 0644 /etc/bash_completion.d/faws.sh
-    source /etc/bash_completion.d/faws.sh
 }
 
 setup_zsh_completion() {
