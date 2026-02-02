@@ -14,12 +14,10 @@ import (
 
 type pull_queue struct {
 	object_lock  sync.Mutex
-	object_locks map[[8]byte]*sync.Mutex
 	object_queue queue.TaskQueue[cas.ContentID]
 }
 
 func (pq *pull_queue) init() {
-	pq.object_locks = make(map[[8]byte]*sync.Mutex)
 	pq.object_queue.Init()
 }
 

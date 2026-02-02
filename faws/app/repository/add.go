@@ -10,10 +10,12 @@ import (
 type AddFileParams struct {
 	// The directory of the repository
 	Directory string
-	// The path to store the file at
-	Path string
-	// The path
-	Origin string
+	// The destination of the file in the index
+	Destination string
+	// The source file on host filesystem
+	Source string
+	//
+	SourceIsRef bool
 	// If true, set file mode to Mode
 	SetMode bool
 	Mode    revision.FileMode
@@ -50,7 +52,8 @@ func AddFile(params *AddFileParams) {
 	// }()
 
 	scrn.verbose = params.Verbose
-	var o []repo.CacheOption
+
+	var o []repo.StagingOption
 	if params.SetMode {
 		o = append(o, repo.WithFileMode(params.Mode))
 	}
@@ -58,9 +61,24 @@ func AddFile(params *AddFileParams) {
 		o = append(o, repo.WithLazy(true))
 	}
 
-	if err := Repo.Cache(params.Path, params.Origin, o...); err != nil {
-		app.Fatal(err)
+	// Users can specify already-existing objects to add to the index
+	if params.SourceIsRef {
+		existing_object, err := Repo.ParseRef(params.Source)
+		if err != nil {
+			app.Fatal(err)
+		}
+
+		if err := Repo.AddObject(params.Destination, existing_object); err != nil {
+			app.Fatal(err)
+		}
+	} else {
+		// scan a file into the repository normally
+		if err := Repo.Add(params.Destination, params.Source, o...); err != nil {
+			// panic(err)
+			app.Fatal(err)
+		}
 	}
+
 	if err := Close(); err != nil {
 		app.Fatal(err)
 		return

@@ -6,6 +6,9 @@ import (
 	"encoding/hex"
 )
 
+// MaxObjectSize objects may not exceed this size constraint.
+const MaxObjectSize = 0x1000000
+
 const ContentIDSize = 20
 
 // ContentID is a truncated SHA-256 hash of content
@@ -17,6 +20,9 @@ var Nil ContentID
 
 // String returns the hexadecimal representation of the ContentID
 func (id ContentID) String() string {
+	if id == Nil {
+		return "nil"
+	}
 	return hex.EncodeToString(id[:])
 }
 

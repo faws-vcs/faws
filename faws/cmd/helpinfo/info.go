@@ -7,11 +7,10 @@ type CategoryEntry struct {
 }
 
 var Text = map[string]string{
-	"id create":  "create a new identity for authoring commits",
-	"id ls":      "list all identities in your ring",
-	"id primary": "make one of your signing identities the primary",
-	"id rm":      "remove an identity from the ring",
-	"id set":     "alter various identity attributes",
+	"id create": "create a new identity for authoring commits",
+	"id ls":     "list all identities in your ring",
+	"id rm":     "remove an identity from the ring",
+	"id set":    "alter various identity attributes",
 
 	"pull":    "download tags or objects into the current repository",
 	"clone":   "download an entire remote repository into a directory",
@@ -20,8 +19,8 @@ var Text = map[string]string{
 
 	"init":        "create an empty repository in the current directory",
 	"add":         "add a file or directory to the index",
-	"rm":          "remove a cached file from the index",
-	"reset":       "remove all cached files and signatures from the index",
+	"rm":          "remove a file from the index",
+	"reset":       "remove all files from the index and, optionally, move an existing commit back into the index",
 	"chmod":       "set the permission flag of a file in the index",
 	"status":      "list files in the index yet to be committed",
 	"write-tree":  "write cached files to a tree object",
@@ -32,6 +31,9 @@ var Text = map[string]string{
 	"cat-file":    "provide contents or details of repository objects",
 	"tag":         "list tags and their associated commit hashes",
 	"ls-tree":     "list the contents of a tree object",
+	"prune":       "purge unreachable objects from the cache",
+	"pack":        "compile many repository objects into larger files",
+	"repack":      "recompile all repository objects into a pack with unreachable objects purged",
 	"fsck":        "enumerate an object hierarchy (and optionally remove) corrupted objects",
 	"mass-revise": "correct big mistakes across all tags",
 }
@@ -51,7 +53,6 @@ var Categories = []CategoryEntry{
 		[]string{
 			"id create",
 			"id rm",
-			"id primary",
 			"id ls",
 			"id set",
 		},
@@ -84,6 +85,9 @@ var Categories = []CategoryEntry{
 			"log",
 			"cat-file",
 			"checkout",
+			"prune",
+			"pack",
+			"repack",
 			"fsck",
 			"mass-revise",
 			"tag",

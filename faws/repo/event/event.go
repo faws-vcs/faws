@@ -13,6 +13,7 @@ const (
 	NotifyCacheFile Notification = iota
 	NotifyCacheFilePart
 	NotifyCacheUsedLazySignature
+	NotifyIndexRemoveFile
 	NotifyPullTag
 	// ( object cas.ContentID, size int )
 	NotifyPullObject
@@ -23,6 +24,7 @@ const (
 	NotifyCorruptedObject
 	// ( prefix cas.Prefix, object cas.ContentID)
 	NotifyRemovedCorruptedObject
+	NotifyPruneObject
 	NotifyBeginStage
 	NotifyCompleteStage
 	NotifyCheckoutFile
@@ -33,6 +35,8 @@ const (
 	NotifyPeerNetMessage
 	NotifyPeerObjectUpload
 	NotifyPeerObjectDuplicateDownload
+	NotifyVisitObject
+	NotifyVisitQueueCount
 )
 
 // A Stage represents a phase of operations within the repository, typically one that can take quite a long time.
@@ -50,6 +54,8 @@ const (
 	StagePullObjects
 	StageCheckout
 	StageServeObjects
+	StageVisitObjects
+	StagePackObjects
 )
 
 // NotifyParams are extra information parameters shared along with the Notification

@@ -59,6 +59,7 @@ func display_commit(commit_hash cas.ContentID) {
 	fmt.Fprintf(&tw, "author:\t%s\n", author_name(attr))
 	fmt.Fprintf(&tw, "author identity:\t%s\n", author.String())
 	fmt.Fprintf(&tw, "tag:\t%s\n", commit_info.Tag)
+	fmt.Fprintf(&tw, "parent:\t%s\n", commit_info.Parent)
 	fmt.Fprintf(&tw, "tree:\t%s\n", commit_info.Tree)
 	fmt.Fprintf(&tw, "tree date:\t%s (%s)\n", timestamp.Format(commit_info.TreeDate), humanize.RelTime(time.Unix(commit_info.TreeDate, 0), now, "ago", "from now"))
 	fmt.Fprintf(&tw, "commit date:\t%s (%s)\n", timestamp.Format(commit_info.CommitDate), humanize.RelTime(time.Unix(commit_info.CommitDate, 0), now, "ago", "from now"))

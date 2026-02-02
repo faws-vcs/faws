@@ -11,10 +11,11 @@ import (
 )
 
 var checkout_cmd = cobra.Command{
-	Use:     "checkout [-w] object-hash destination",
-	Short:   helpinfo.Text["checkout"],
-	GroupID: "repo",
-	Run:     run_checkout_cmd,
+	Use:               "checkout [-w] object-hash destination",
+	Short:             helpinfo.Text["checkout"],
+	GroupID:           "repo",
+	Run:               run_checkout_cmd,
+	ValidArgsFunction: repository.InferenceRefArg(0),
 }
 
 func init() {

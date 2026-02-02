@@ -27,7 +27,7 @@ func Chmod(params *ChmodParams) {
 		app.Fatal(err)
 	}
 
-	if err := Repo.CacheSetFileMode(params.Path, params.Mode); err != nil {
+	if err := Repo.Chmod(params.Path, params.Mode); err != nil {
 		app.Fatal(err)
 	}
 	if err := Close(); err != nil {

@@ -17,7 +17,7 @@ func (repo *Repository) ParseRef(ref string) (hash cas.ContentID, err error) {
 	ref_is_valid_hex := validate.Hex(ref)
 
 	// abbreviated hashes
-	if ref_is_valid_hex && len(ref) == cas.ContentIDSize*2 {
+	if ref_is_valid_hex {
 		goto parse_hex
 	}
 
@@ -33,9 +33,10 @@ func (repo *Repository) ParseRef(ref string) (hash cas.ContentID, err error) {
 	}
 
 parse_hex:
+	// it's a verbatim hash
 	if len(ref) >= cas.ContentIDSize*2 {
 		ref_bytes := []byte(ref)
-		hex.Decode(hash[:], ref_bytes[:cas.ContentIDSize*2])
+		_, err = hex.Decode(hash[:], ref_bytes[:cas.ContentIDSize*2])
 		return
 	}
 	// ref is an abbreviation

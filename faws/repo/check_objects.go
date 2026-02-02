@@ -17,7 +17,7 @@ import (
 // If purge == true,  [event.NotifyRemovedCorruptedObject] is generated upon encountering an inconsistent or corrupt object, and the object is deleted.
 func (repo *Repository) CheckObjects(id cas.ContentID, purge bool) (err error) {
 	if id == cas.Nil {
-		err = repo.objects.List(func(id cas.ContentID) (err error) {
+		err = repo.objects.List(func(cache bool, id cas.ContentID) (err error) {
 			var (
 				prefix cas.Prefix
 			)

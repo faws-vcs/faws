@@ -27,7 +27,7 @@ func Stat(params *StatParams) {
 		return
 	}
 
-	index := Repo.CacheIndex()
+	index := Repo.Index()
 	if index != nil {
 		if params.ShowLazyFiles {
 			if len(index.LazySignatures) != 0 {

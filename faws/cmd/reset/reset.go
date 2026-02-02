@@ -11,10 +11,11 @@ import (
 )
 
 var reset_cmd = cobra.Command{
-	Use:     "reset",
-	Short:   helpinfo.Text["reset"],
-	GroupID: "repo",
-	Run:     run_reset_cmd,
+	Use:               "reset [commit-ref]",
+	Short:             helpinfo.Text["reset"],
+	GroupID:           "repo",
+	Run:               run_reset_cmd,
+	ValidArgsFunction: repository.InferenceRefArg(0),
 }
 
 func init() {
@@ -31,6 +32,9 @@ func run_reset_cmd(cmd *cobra.Command, args []string) {
 
 	var params = repository.ResetParams{
 		Directory: working_directory,
+	}
+	if len(args) > 0 {
+		params.Ref = args[0]
 	}
 	repository.Reset(&params)
 }

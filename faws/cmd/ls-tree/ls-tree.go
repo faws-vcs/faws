@@ -11,10 +11,11 @@ import (
 )
 
 var ls_tree_cmd = cobra.Command{
-	Use:     "ls-tree [-r] object",
-	Short:   helpinfo.Text["ls-tree"],
-	GroupID: "repo",
-	Run:     run_ls_tree_cmd,
+	Use:               "ls-tree [-r] object-hash",
+	Short:             helpinfo.Text["ls-tree"],
+	GroupID:           "repo",
+	Run:               run_ls_tree_cmd,
+	ValidArgsFunction: repository.InferenceRefArg(0),
 }
 
 func init() {

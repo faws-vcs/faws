@@ -32,12 +32,10 @@ func CatFile(params *CatFileParams) {
 	if err != nil {
 		app.Fatal(err)
 	}
-
 	prefix, object, err := Repo.LoadObject(hash)
 	if err != nil {
 		app.Fatal(err)
 	}
-
 	if params.PrettyPrint {
 		switch prefix {
 		case cas.Tree:

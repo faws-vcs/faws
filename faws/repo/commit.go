@@ -100,9 +100,6 @@ func (repo *Repository) CommitTree(signing *identity.Pair, info *revision.Commit
 		return
 	}
 
-	// clear cached objects
-	repo.index.cache_objects = make(map[cas.ContentID]uint32)
-
 	if err = repo.write_tag(info.Tag, commit_hash); err != nil {
 		return
 	}

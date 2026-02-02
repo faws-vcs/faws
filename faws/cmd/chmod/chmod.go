@@ -12,7 +12,7 @@ import (
 )
 
 var chmod_cmd = cobra.Command{
-	Use:     "chmod path mode",
+	Use:     "chmod pathspec mode",
 	Short:   helpinfo.Text["chmod"],
 	GroupID: "repo",
 	Run:     run_chmod_cmd,

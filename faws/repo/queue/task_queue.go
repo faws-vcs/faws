@@ -23,9 +23,9 @@ type TaskQueue[T OrderedSetItem[T]] struct {
 	guard_tasks  sync.Mutex
 	queue_count  int
 	// contains tasks that are being processed or were already processed
-	popped_tasks ordered_object_set[T]
+	popped_tasks OrderedSet[T]
 	// contains tasks that are available for workers to process
-	available_tasks ordered_object_set[T]
+	available_tasks OrderedSet[T]
 }
 
 // Init: required to use the TaskQueue
@@ -33,6 +33,12 @@ func (task_queue *TaskQueue[T]) Init() {
 	task_queue.push_cond.L = new(sync.Mutex)
 	task_queue.popped_tasks.Init()
 	task_queue.available_tasks.Init()
+}
+
+func (task_queue *TaskQueue[T]) Destroy() {
+	task_queue.push_cond.L = nil
+	task_queue.popped_tasks.Destroy()
+	task_queue.available_tasks.Destroy()
 }
 
 // Len return the the amount of all tasks pushed and popped from the queue
@@ -63,6 +69,19 @@ func (task_queue *TaskQueue[T]) Complete(object T) {
 		task_queue.push_cond.Broadcast()
 	}
 	task_queue.guard_tasks.Unlock()
+}
+
+func (task_queue *TaskQueue[T]) Contains(object T) (contains bool) {
+	task_queue.guard_tasks.Lock()
+	defer task_queue.guard_tasks.Unlock()
+
+	contains = task_queue.popped_tasks.Contains(object)
+	if contains {
+		return
+	}
+
+	contains = task_queue.available_tasks.Contains(object)
+	return
 }
 
 func (task_queue *TaskQueue[T]) Stop() {

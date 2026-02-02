@@ -22,7 +22,7 @@ type Repository struct {
 	// cas objects that belong to the repository itself
 	objects cas.Set
 	// cached changes
-	index cache_index
+	index staging_index
 	// the URL of the tracker server
 	tracker_url string
 }

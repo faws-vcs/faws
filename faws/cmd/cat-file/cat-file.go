@@ -11,10 +11,11 @@ import (
 )
 
 var cat_file_cmd = cobra.Command{
-	Use:     "cat-file object",
-	Short:   helpinfo.Text["cat-file"],
-	GroupID: "repo",
-	Run:     run_cat_file_cmd,
+	Use:               "cat-file object-hash",
+	Short:             helpinfo.Text["cat-file"],
+	GroupID:           "repo",
+	Run:               run_cat_file_cmd,
+	ValidArgsFunction: repository.InferenceRefArg(0),
 }
 
 func init() {

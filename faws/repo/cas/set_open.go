@@ -45,5 +45,12 @@ func (set *Set) Open(path string) (err error) {
 
 	set.directory = path
 
+	if err = set.cache.Open(set.directory); err != nil {
+		return
+	}
+	if err = set.pack.Open(filepath.Join(set.directory, "/pack"), -1); err != nil {
+		return
+	}
+
 	return
 }

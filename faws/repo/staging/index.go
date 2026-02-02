@@ -1,4 +1,4 @@
-package cache
+package staging
 
 import (
 	"encoding/binary"
@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	ErrCacheEntryCannotBeEmpty = fmt.Errorf("faws/repo/cache: cache entry cannot be empty")
+	ErrCacheEntryCannotBeEmpty = fmt.Errorf("faws/repo/staging: index entry cannot be empty")
 )
 
 // An IndexEntry associates a path string with an object hash and a filemode
@@ -21,15 +21,6 @@ type IndexEntry struct {
 	File cas.ContentID
 	// The mode of the file
 	Mode revision.FileMode
-}
-
-// A CacheObject is a handle to a loose object, or an object that is not necessarily part of the repository yet, but exists inside the cache or [cas.Set]
-// Therefore it may be freed from the repository if the number of references in the index reaches 0
-type CacheObject struct {
-	// FILE or PART hash
-	Hash cas.ContentID
-	// number of times this hash is referenced across all entries
-	References uint32
 }
 
 // A LazySignature memoizes the intensive process of scanning a file by exploiting format specific features.
@@ -46,25 +37,13 @@ type LazySignature struct {
 
 // Index lists pending changes to be written by the next commit
 type Index struct {
-	CacheObjects []CacheObject
-	Entries      []IndexEntry
+	Entries []IndexEntry
 	// Completely optional: use lazy signatures to accelerate caching large collections of archive files
 	LazySignatures []LazySignature
 }
 
 // MarshalIndex serializes the Index to a slice of bytes
 func MarshalIndex(index *Index) (data []byte, err error) {
-	var cache_objects_count [4]byte
-	binary.LittleEndian.PutUint32(cache_objects_count[:], uint32(len(index.CacheObjects)))
-	data = append(data, cache_objects_count[:]...)
-	for _, cache_object := range index.CacheObjects {
-		var references [4]byte
-		binary.LittleEndian.PutUint32(references[:], uint32(cache_object.References))
-
-		data = append(data, cache_object.Hash[:]...)
-		data = append(data, references[:]...)
-	}
-
 	var entries_count [4]byte
 	binary.LittleEndian.PutUint32(entries_count[:], uint32(len(index.Entries)))
 	data = append(data, entries_count[:]...)
@@ -98,18 +77,6 @@ func MarshalIndex(index *Index) (data []byte, err error) {
 // UnmarshalIndex deserializes the slice of bytes into the Index
 func UnmarshalIndex(data []byte, index *Index) (err error) {
 	field := data
-
-	cache_objects_count := binary.LittleEndian.Uint32(field[:4])
-	field = field[4:]
-	index.CacheObjects = make([]CacheObject, cache_objects_count)
-
-	for i := range index.CacheObjects {
-		cache_object := &index.CacheObjects[i]
-		copy(cache_object.Hash[:], field[:cas.ContentIDSize])
-		field = field[cas.ContentIDSize:]
-		cache_object.References = binary.LittleEndian.Uint32(field[:4])
-		field = field[4:]
-	}
 
 	entries_count := binary.LittleEndian.Uint32(field[:4])
 	field = field[4:]

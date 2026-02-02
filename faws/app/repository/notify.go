@@ -14,6 +14,10 @@ import (
 	"github.com/faws-vcs/faws/faws/repo/p2p/peernet"
 )
 
+const (
+	summarize_pruning = 1 << iota
+)
+
 var (
 	stages_text = map[event.Stage]string{
 		event.StagePullObjects:  "Retrieve objects",
@@ -23,11 +27,11 @@ var (
 		event.StageWriteTree:    "Write tree",
 		event.StageCheckout:     "Checkout",
 		event.StageServeObjects: "Distribute objects",
+		event.StageVisitObjects: "Visit objects",
+		event.StagePackObjects:  "Pack objects",
 	}
 
 	scrn activity_screen
-
-	guard sync.Mutex
 )
 
 type activity_stage struct {
@@ -37,6 +41,10 @@ type activity_stage struct {
 }
 
 type activity_screen struct {
+	guard sync.RWMutex
+
+	summary_mode uint8
+
 	stages           []activity_stage
 	in_progress      bool
 	tags_received    int
@@ -62,14 +70,21 @@ type activity_screen struct {
 	duplicate_object_downloads     int64
 	duplicate_object_download_size uint64
 
+	objects_visited        uint64
+	objects_in_visit_queue uint64
+	objects_pruned         uint64
+
 	verbose bool
 }
 
 func begin_stage(stage event.Stage, child bool) {
+	scrn.guard.Lock()
 	scrn.stages = append(scrn.stages, activity_stage{stage, 0, child})
+	scrn.guard.Unlock()
 }
 
 func complete_stage(stage event.Stage, success bool) {
+	scrn.guard.Lock()
 	if stage != scrn.stages[len(scrn.stages)-1].stage {
 		panic("stage complete mismatch")
 	}
@@ -82,21 +97,26 @@ func complete_stage(stage event.Stage, success bool) {
 	} else {
 		scrn.stages[len(scrn.stages)-1].state = 2
 	}
+	scrn.guard.Unlock()
 }
 
 func update_pull_info(object_size int, object_prefix cas.Prefix, object_hash cas.ContentID) {
+	scrn.guard.Lock()
 	scrn.bytes_received += uint64(object_size)
 	scrn.objects_received++
 
 	scrn.last_object_prefix = object_prefix
 	scrn.last_object_hash = object_hash
 	scrn.last_object_size = uint64(object_size)
+	scrn.guard.Unlock()
 }
 
 func update_checkout(destination string, size int64) {
+	scrn.guard.Lock()
 	scrn.current_file_origin = destination
 	scrn.current_file_size = size
 	scrn.current_file_progress = 0
+	scrn.guard.Unlock()
 }
 
 func prefix(p cas.Prefix) string {
@@ -115,21 +135,34 @@ func prefix(p cas.Prefix) string {
 }
 
 func notify(ev event.Notification, params *event.NotifyParams) {
-	guard.Lock()
 
 	switch ev {
 	case event.NotifyCacheFile:
+
 		if scrn.verbose {
 			app.Info("caching", params.Name1, params.Name2)
 		}
+
+		// don't try to call app.Info while modifying the activity screen state : it will lead to DEADLOCK
+		// as the hud is already trying to get a lock when an update is being notified, these can never become unlocked
+		scrn.guard.Lock()
 		scrn.current_file_size = params.Count
 		scrn.current_file_progress = 0
 		scrn.current_file_origin = params.Name2
+		scrn.guard.Unlock()
+
 	case event.NotifyCacheFilePart:
+
+		scrn.guard.Lock()
 		scrn.current_file_progress += params.Count
+		scrn.guard.Unlock()
+
 	case event.NotifyCacheUsedLazySignature:
 		app.Info("using precached file (--lazy)", params.Name1, params.Name2)
+	case event.NotifyIndexRemoveFile:
+		app.Info(fmt.Sprintf("rm '%s'", params.Name1))
 	case event.NotifyPullTag:
+
 		local_hash := params.Object1
 		remote_hash := params.Object2
 		if local_hash == cas.Nil {
@@ -139,7 +172,10 @@ func notify(ev event.Notification, params *event.NotifyParams) {
 		} else if scrn.verbose {
 			app.Info("tag", params.Name1+":", params.Object2)
 		}
+
+		scrn.guard.Lock()
 		scrn.tags_received++
+		scrn.guard.Unlock()
 	case event.NotifyPullObject:
 		var (
 			object_prefix = params.Prefix
@@ -149,14 +185,23 @@ func notify(ev event.Notification, params *event.NotifyParams) {
 
 		update_pull_info(int(object_size), object_prefix, object_hash)
 	case event.NotifyTagQueueCount:
+		scrn.guard.Lock()
 		scrn.tags_in_queue = int(params.Count)
+		scrn.guard.Unlock()
 	case event.NotifyPullQueueCount:
+		scrn.guard.Lock()
 		scrn.in_progress = true
 		scrn.objects_in_queue = int(params.Count)
+		scrn.guard.Unlock()
 	case event.NotifyCorruptedObject:
 		app.Warning("corrupted object", params.Prefix, params.Object1)
 	case event.NotifyRemovedCorruptedObject:
 		app.Warning("removed corrupted object", params.Prefix, params.Object1)
+	case event.NotifyPruneObject:
+		scrn.guard.Lock()
+		scrn.objects_pruned++
+		scrn.guard.Unlock()
+		app.Warning("pruned unreachable object", params.Object1)
 	case event.NotifyBeginStage:
 		begin_stage(params.Stage, params.Child)
 	case event.NotifyCompleteStage:
@@ -167,42 +212,66 @@ func notify(ev event.Notification, params *event.NotifyParams) {
 		}
 		update_checkout(params.Name1, params.Count)
 	case event.NotifyCheckoutFilePart:
+		scrn.guard.Lock()
 		scrn.current_file_progress += params.Count
+		scrn.guard.Unlock()
 	case event.NotifyPeerConnected:
+		scrn.guard.Lock()
 		scrn.connected_peers++
 		// app.Info("connected to peer", params.ID)
+		scrn.guard.Unlock()
 	case event.NotifyPeerDisconnected:
 		// app.Info("disconnected from", params.ID)
+		scrn.guard.Lock()
 		scrn.connected_peers--
+		scrn.guard.Unlock()
 	case event.NotifyPeerNetMessage:
+		scrn.guard.Lock()
 		scrn.received_messages++
 		scrn.last_message_id = params.MessageID
+		scrn.guard.Unlock()
 	case event.NotifyPeerObjectUpload:
+		scrn.guard.Lock()
 		scrn.object_uploads++
+		scrn.guard.Unlock()
 	case event.NotifyPeerObjectDuplicateDownload:
+		scrn.guard.Lock()
 		scrn.duplicate_object_downloads++
 		scrn.duplicate_object_download_size += uint64(params.Count)
+		scrn.guard.Unlock()
+	case event.NotifyVisitObject:
+		scrn.guard.Lock()
+		scrn.objects_visited++
+		scrn.guard.Unlock()
+	case event.NotifyVisitQueueCount:
+		scrn.guard.Lock()
+		scrn.objects_in_visit_queue = uint64(params.Count)
+		scrn.guard.Unlock()
 	}
-	guard.Unlock()
 
 	console.SwapHud()
 }
 
 func render_activity_screen(hud *console.Hud) {
+	scrn.guard.RLock()
+	defer scrn.guard.RUnlock()
+
 	if hud.Exiting() {
+		if scrn.summary_mode&summarize_pruning != 0 {
+			prune_summary(hud)
+		}
 		return
 	}
-	guard.Lock()
-	defer guard.Unlock()
+
 	var spinner console.Spinner
-	spinner.Stylesheet.Sequence[0] = console.Cell{'⡿', console.BrightBlue, 0}
-	spinner.Stylesheet.Sequence[1] = console.Cell{'⣟', console.BrightBlue, 0}
-	spinner.Stylesheet.Sequence[2] = console.Cell{'⣯', console.BrightBlue, 0}
-	spinner.Stylesheet.Sequence[3] = console.Cell{'⣷', console.BrightBlue, 0}
-	spinner.Stylesheet.Sequence[4] = console.Cell{'⣾', console.BrightBlue, 0}
-	spinner.Stylesheet.Sequence[5] = console.Cell{'⣽', console.BrightBlue, 0}
-	spinner.Stylesheet.Sequence[6] = console.Cell{'⣻', console.BrightBlue, 0}
-	spinner.Stylesheet.Sequence[7] = console.Cell{'⢿', console.BrightBlue, 0}
+	spinner.Stylesheet.Sequence[7] = console.Cell{'⡿', console.BrightBlue, 0}
+	spinner.Stylesheet.Sequence[6] = console.Cell{'⣟', console.BrightBlue, 0}
+	spinner.Stylesheet.Sequence[5] = console.Cell{'⣯', console.BrightBlue, 0}
+	spinner.Stylesheet.Sequence[4] = console.Cell{'⣷', console.BrightBlue, 0}
+	spinner.Stylesheet.Sequence[3] = console.Cell{'⣾', console.BrightBlue, 0}
+	spinner.Stylesheet.Sequence[2] = console.Cell{'⣽', console.BrightBlue, 0}
+	spinner.Stylesheet.Sequence[1] = console.Cell{'⣻', console.BrightBlue, 0}
+	spinner.Stylesheet.Sequence[0] = console.Cell{'⢿', console.BrightBlue, 0}
 	spinner.Frequency = time.Second / 3
 
 	var stage_stack []int
@@ -270,6 +339,17 @@ func render_activity_screen(hud *console.Hud) {
 	progress_bar.Stylesheet.Sequence[console.PbHead] = console.Cell{'#', 0, 0}
 
 	switch stage.stage {
+	case event.StageVisitObjects:
+		if scrn.objects_in_visit_queue > 0 {
+			var progress_text console.Text
+			progress_text.Stylesheet.Width = console.Width()
+			progress_text.Add(fmt.Sprintf("%d/%d objects visited", scrn.objects_visited, scrn.objects_in_visit_queue), 0, 0)
+			hud.Line(&progress_text)
+
+			progress_bar.Stylesheet.Width = console.Width()
+			progress_bar.Progress = float64(scrn.objects_visited) / float64(scrn.objects_in_visit_queue)
+			hud.Line(&progress_bar)
+		}
 	case event.StagePullTags:
 		var progress_text console.Text
 		progress_text.Stylesheet.Width = console.Width()

@@ -2,6 +2,10 @@ github.com/Gophercraft/mpq v0.1.1-0.20250127065928-651347da2df6 h1:Xv2kACrukR8TZ
 github.com/Gophercraft/mpq v0.1.1-0.20250127065928-651347da2df6/go.mod h1:8SyCPiH8D6Tr7DrgVuRQig/pAQeoFYVP4FzvnXyt8fA=
 github.com/JoshVarga/blast v0.0.0-20210808061142-eadad17358e8 h1:9bbQDlx6h7MyNk3Ljr5wNqFQ5gEhX7pE4j7EHL86/2Q=
 github.com/JoshVarga/blast v0.0.0-20210808061142-eadad17358e8/go.mod h1:rwSKMTLI/8tbw6YDRqtd3Hc0OI3eP/tSTVKshyd8dO8=
+github.com/clipperhouse/stringish v0.1.1 h1:+NSqMOr3GR6k1FdRhhnXrLfztGzuG+VuFDfatpWHKCs=
+github.com/clipperhouse/stringish v0.1.1/go.mod h1:v/WhFtE1q0ovMta2+m+UbpZ+2/HEXNWYXQgCt4hdOzA=
+github.com/clipperhouse/uax29/v2 v2.4.0 h1:RXqE/l5EiAbA4u97giimKNlmpvkmz+GrBVTelsoXy9g=
+github.com/clipperhouse/uax29/v2 v2.4.0/go.mod h1:Wn1g7MK6OoeDT0vL+Q0SQLDz/KpfsVRgg6W7ihQeh4g=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -15,6 +19,10 @@ github.com/faws-vcs/console v0.0.0-20260113130022-ff5333a74929 h1:mGrZ825eXBbBYe
 github.com/faws-vcs/console v0.0.0-20260113130022-ff5333a74929/go.mod h1:a+ZvKQeWszaMu2/uck+lABgKvYJdVlkY3KPpXXvVhFY=
 github.com/faws-vcs/console v0.0.0-20260113144549-d142096f604e h1:Z2CPNf7K1/FC0gFxbc/w/iytvTB3d/iNSjwRwevOWpA=
 github.com/faws-vcs/console v0.0.0-20260113144549-d142096f604e/go.mod h1:a+ZvKQeWszaMu2/uck+lABgKvYJdVlkY3KPpXXvVhFY=
+github.com/faws-vcs/console v0.0.0-20260128230346-c4708978b6f1 h1:VL4MfVBdoazTZLVSyUmH4tvSRxTCYDVdeDX2m4Gb1c0=
+github.com/faws-vcs/console v0.0.0-20260128230346-c4708978b6f1/go.mod h1:8nx403t1WQp2vMDUDu8WZbM4jlcW2zUGUO7Sfat435c=
+github.com/faws-vcs/console v0.0.0-20260131025334-e632c3e5b6a0 h1:uO122XU6999Lo9obdjmWxxHr7+N0YKU3c6hhC8GwCrE=
+github.com/faws-vcs/console v0.0.0-20260131025334-e632c3e5b6a0/go.mod h1:8nx403t1WQp2vMDUDu8WZbM4jlcW2zUGUO7Sfat435c=
 github.com/google/btree v1.1.3 h1:CVpQJjYgC4VbzxeGVHfvZrv1ctoYCAI8vbl07Fcxlyg=
 github.com/google/btree v1.1.3/go.mod h1:qOPhT0dTNdNzV6Z/lhRX0YXUafgPLFUh+gZMl761Gm4=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
@@ -23,6 +31,8 @@ github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aN
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
+github.com/mattn/go-runewidth v0.0.19 h1:v++JhqYnZuu5jSKrk9RbgF5v4CGUjqRfBm05byFGLdw=
+github.com/mattn/go-runewidth v0.0.19/go.mod h1:XBkDxAl56ILZc9knddidhrOlY5R/pDhgLpndooCuJAs=
 github.com/pion/datachannel v1.5.10 h1:ly0Q26K1i6ZkGf42W7D4hQYR90pZwzFOjTq5AuCKk4o=
 github.com/pion/datachannel v1.5.10/go.mod h1:p/jJfC9arb29W7WrxyKbepTU20CFgyx5oLo8Rs4Py/M=
 github.com/pion/dtls/v3 v3.0.9 h1:4AijfFRm8mAjd1gfdlB1wzJF3fjjR/VPIpJgkEtvYmM=
