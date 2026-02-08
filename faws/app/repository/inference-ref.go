@@ -66,3 +66,23 @@ func InferenceRefArg(n int) cobra.CompletionFunc {
 		return
 	}
 }
+
+func InferenceRefLastArg(cmd *cobra.Command, args []string, toComplete string) (completion []cobra.Completion, shell_comp_directive cobra.ShellCompDirective) {
+	working_directory, err := os.Getwd()
+	if err != nil {
+		app.Fatal(err)
+		return
+	}
+
+	var params InferenceRefParams
+	params.Directory = working_directory
+	params.Ref = toComplete
+
+	InferenceRef(&params)
+
+	completion = make([]cobra.Completion, len(params.Inferences))
+	for i := range params.Inferences {
+		completion[i] = cobra.Completion(params.Inferences[i])
+	}
+	return
+}

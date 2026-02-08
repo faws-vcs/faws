@@ -20,7 +20,7 @@ type Agent struct {
 }
 
 func (agent *Agent) Init(options ...Option) (err error) {
-	agent.options.requests_per_second = 128
+	agent.options.requests_per_second = 2048
 	agent.options.tracker_url = tracker.DefaultURL
 	agent.options.notify = func(n event.Notification, params *event.NotifyParams) {}
 

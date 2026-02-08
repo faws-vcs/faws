@@ -1,15 +1,14 @@
 package peernet
 
 import (
-	"bytes"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"slices"
 	"sync"
 	"sync/atomic"
+	"time"
 
-	"github.com/faws-vcs/console"
+	"github.com/faws-vcs/faws/faws/app"
 	"github.com/faws-vcs/faws/faws/identity"
 	"github.com/faws-vcs/faws/faws/repo/p2p/tracker"
 	"github.com/pion/webrtc/v4"
@@ -22,6 +21,8 @@ const (
 	PeerConnected
 	NumChannelStates
 )
+
+const message_ttl = time.Minute
 
 func (channel_state PeerState) String() (s string) {
 	if channel_state > NumChannelStates {
@@ -54,8 +55,9 @@ type peer_connection struct {
 	write_lock            sync.Mutex
 	read_lock             sync.Mutex
 	data_channel          *webrtc.DataChannel
-	incoming_data_channel chan []byte
-	outgoing_data_channel chan []byte
+	message_sequence      uint64
+	incoming_data_channel chan fragment
+	outgoing_data_channel chan fragment
 	//
 	state atomic.Int32
 	//
@@ -195,66 +197,111 @@ func (peer_connection *peer_connection) set_state(state int32) {
 	}
 }
 
-func (peer_connection *peer_connection) handle_incoming_data() {
-	var (
-		expected_bytes int
-		buffer         *bytes.Buffer
-	)
+const incoming_messages_gc_ttl = 1 * time.Minute
 
-	for {
-		data, ok := <-peer_connection.incoming_data_channel
-		if !ok {
-			return
-		}
+type incoming_message struct {
+	fragment_bitfield [64]byte
+	buffer            []byte
+	bytes_received    uint64
+}
 
-	process_data:
-		for {
-			if expected_bytes == 0 {
-				// read header
-				if len(data) < 5 {
-					console.Println("peer sent message without valid header", len(data))
-					peer_connection.close()
-					return
-				}
-				var header [5]byte
-				copy(header[:], data[:5])
-
-				expected_bytes = int(binary.LittleEndian.Uint32(header[:4]))
-				if expected_bytes == 0 {
-					console.Println("peer sent empty message")
-					peer_connection.close()
-					return
-				}
-				message_id := MessageID(header[4])
-
-				if err := validate_message_header(uint32(expected_bytes)-1, message_id); err != nil {
-					console.Println("peer sent invalid header", err, len(data))
-					peer_connection.close()
-					return
-				}
-
-				data = data[5:]
-				buffer = new(bytes.Buffer)
-				buffer.Grow(expected_bytes)
-				buffer.WriteByte(byte(message_id))
-			}
-
-			fragment_size := min(len(data), (expected_bytes - buffer.Len()))
-			buffer.Write(data[:fragment_size])
-			data = data[fragment_size:]
-
-			if buffer.Len() == expected_bytes {
-				buffer_bytes := buffer.Bytes()
-				peer_connection.topic_channel.client.channel_message_handler(peer_connection.topic_channel.topic, peer_connection.peer, MessageID(buffer_bytes[0]), buffer_bytes[1:])
-				buffer = nil
-				expected_bytes = 0
-			}
-
-			if len(data) == 0 {
-				break process_data
-			}
+func incoming_messages_gc(messages map[message_guid]*incoming_message) {
+	moment := time.Now()
+	for guid := range messages {
+		if moment.Sub(time.UnixMilli(guid.Timestamp())) > incoming_messages_gc_ttl {
+			delete(messages, guid)
 		}
 	}
+}
+
+func (incoming_message *incoming_message) set_fragment_bit(fragment_id uint16, value bool) {
+	byte_index := fragment_id / 8
+	byte_flag := (byte(1) << byte(fragment_id%8))
+	if value {
+		incoming_message.fragment_bitfield[byte_index] |= byte_flag
+	} else {
+		incoming_message.fragment_bitfield[byte_index] &= ^byte_flag
+	}
+}
+
+func (incoming_message *incoming_message) get_fragment_bit(fragment_id uint16) (value bool) {
+	value = incoming_message.fragment_bitfield[fragment_id/8]&(1<<(fragment_id%8)) != 0
+	return
+}
+
+func (peer_connection *peer_connection) handle_incoming_data() {
+	messages := make(map[message_guid]*incoming_message)
+
+	gc_ticker := time.NewTicker(incoming_messages_gc_ttl)
+
+message_loop:
+	for {
+		select {
+		case <-gc_ticker.C:
+			incoming_messages_gc(messages)
+		case fragment, ok := <-peer_connection.incoming_data_channel:
+			if !ok {
+				break message_loop
+			}
+			moment := time.Now()
+			// if the message is too old by now, drop it
+			if moment.Sub(time.UnixMilli(fragment.Message.Timestamp())) > message_ttl {
+				delete(messages, fragment.Message)
+				continue message_loop
+			}
+
+			// if the single fragment contains the entire message payload, receive the message and skip tracking
+			if fragment.Message.PayloadSize() == uint32(len(fragment.Data)) {
+				peer_connection.topic_channel.client.channel_message_handler(peer_connection.topic_channel.topic, peer_connection.peer, fragment.Message.MessageID(), fragment.Data)
+				continue message_loop
+			}
+
+			// lookup message by guid
+			incoming_message_, message_is_already_tracked := messages[fragment.Message]
+			if !message_is_already_tracked {
+				incoming_message_ = new(incoming_message)
+				// allocate buffer
+				incoming_message_.buffer = make([]byte, fragment.Message.PayloadSize())
+				// add to map
+				messages[fragment.Message] = incoming_message_
+			}
+
+			// receive the fragment
+
+			// TODO: discard messages that have a much higher amount of data intake than what they should be
+			incoming_message_.bytes_received += 16 + 2 + uint64(len(fragment.Data))
+
+			if incoming_message_.get_fragment_bit(fragment.Fragment) {
+				// already received, nothing to do here
+				continue message_loop
+			}
+
+			// the fragment bitfield should be checked now
+			fragment_count := uint16((fragment.Message.PayloadSize() + (fragment_max_data_size - 1)) / fragment_max_data_size)
+			fragment_offset := fragment_max_data_size * uint32(fragment.Fragment)
+
+			// offset is already validated
+			copy(incoming_message_.buffer[fragment_offset:], fragment.Data)
+
+			incoming_message_.set_fragment_bit(fragment.Fragment, true)
+
+			all_fragments_received := true
+
+			for i := uint16(0); i < fragment_count; i++ {
+				all_fragments_received = incoming_message_.get_fragment_bit(i)
+				if !all_fragments_received {
+					break
+				}
+			}
+
+			if all_fragments_received {
+				delete(messages, fragment.Message)
+				peer_connection.topic_channel.client.channel_message_handler(peer_connection.topic_channel.topic, peer_connection.peer, fragment.Message.MessageID(), incoming_message_.buffer)
+			}
+		}
+
+	}
+	gc_ticker.Stop()
 }
 
 func (peer_connection *peer_connection) handle_outgoing_data() {
@@ -263,7 +310,14 @@ func (peer_connection *peer_connection) handle_outgoing_data() {
 		if !ok {
 			return
 		}
-		if err := peer_connection.data_channel.Send(fragment); err != nil {
+		encoded_fragment, err := encode_fragment(&fragment)
+		if err != nil {
+			app.Warning(err)
+			return
+		}
+
+		if err := peer_connection.data_channel.Send(encoded_fragment); err != nil {
+			app.Warning(err)
 			return
 		}
 	}
@@ -281,8 +335,8 @@ func (peer_connection *peer_connection) create_data_channel() {
 	data_channel, err = peer_connection.connection.CreateDataChannel("faws peernet v1", &data_channel_init)
 	if err == nil {
 		data_channel.OnOpen(func() {
-			peer_connection.incoming_data_channel = make(chan []byte, 64)
-			peer_connection.outgoing_data_channel = make(chan []byte, 128)
+			peer_connection.incoming_data_channel = make(chan fragment, 64)
+			peer_connection.outgoing_data_channel = make(chan fragment, 128)
 			peer_connection.set_state(PeerConnected)
 			go peer_connection.handle_outgoing_data()
 			go peer_connection.handle_incoming_data()
@@ -307,13 +361,27 @@ func (peer_connection *peer_connection) create_data_channel() {
 	peer_connection.data_channel = data_channel
 }
 
-func (peer_connection *peer_connection) handle_message_fragment(fragment []byte) {
+func (peer_connection *peer_connection) handle_message_fragment(data []byte) {
+	var (
+		err      error
+		fragment fragment
+	)
+	err = decode_fragment(data, &fragment)
+	if err != nil {
+		return
+	}
+	if err = validate_fragment(&fragment); err != nil {
+		return
+	}
 	peer_connection.incoming_data_channel <- fragment
 }
 
-const maximum_fragment_size = 16384
-
 func (peer_connection *peer_connection) send(message_id MessageID, message []byte) (err error) {
+	if len(message) > 0x3ffffff {
+		err = ErrInvalidMessageSize
+		return
+	}
+
 	if peer_connection.state.Load() == PeerConnected {
 		peer_connection.write_lock.Lock()
 		defer peer_connection.write_lock.Unlock()
@@ -323,18 +391,24 @@ func (peer_connection *peer_connection) send(message_id MessageID, message []byt
 			return
 		}
 
-		var message_header [5]byte
-		binary.LittleEndian.PutUint32(message_header[:], uint32(len(message)+1))
-		message_header[4] = byte(message_id)
+		message_sequence := peer_connection.message_sequence
+		// overflow message sequence
+		if message_sequence == 0x3ffffffffffff {
+			message_sequence = 0
+		}
+		peer_connection.message_sequence++
 
-		full_message := append(message_header[:], message...)
+		message_guid := new_message_guid(message_id, message_sequence, time.Now().UnixMilli(), uint32(len(message)))
 
 		// break message into fragments
-		for fragment := range slices.Chunk(full_message, maximum_fragment_size) {
-			// if err = peer_connection.data_channel.Send(fragment); err != nil {
-			// 	return
-			// }
-			peer_connection.outgoing_data_channel <- fragment[:]
+		var fragment_id uint16
+		for fragment_data := range slices.Chunk(message, fragment_max_data_size) {
+			var fragment fragment
+			fragment.Message = message_guid
+			fragment.Fragment = fragment_id
+			fragment.Data = fragment_data
+			fragment_id++
+			peer_connection.outgoing_data_channel <- fragment
 		}
 	} else {
 		err = errors.New("faws/repo/p2p/peernet: cannot send to disconnected peer")

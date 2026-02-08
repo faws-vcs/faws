@@ -11,10 +11,11 @@ import (
 )
 
 var pull_cmd = cobra.Command{
-	Use:     "pull [--tag] ...",
-	Short:   helpinfo.Text["pull"],
-	GroupID: "remote",
-	Run:     run_pull_cmd,
+	Use:               "pull [--tag] ...",
+	Short:             helpinfo.Text["pull"],
+	GroupID:           "remote",
+	Run:               run_pull_cmd,
+	ValidArgsFunction: repository.InferenceRefLastArg,
 }
 
 func init() {
