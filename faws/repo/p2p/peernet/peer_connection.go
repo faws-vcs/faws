@@ -200,7 +200,7 @@ func (peer_connection *peer_connection) set_state(state int32) {
 const incoming_messages_gc_ttl = 1 * time.Minute
 
 type incoming_message struct {
-	fragment_bitfield [64]byte
+	fragment_bitfield [514]byte
 	buffer            []byte
 	bytes_received    uint64
 }
