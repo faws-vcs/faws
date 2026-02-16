@@ -12,6 +12,7 @@ type SeedParams struct {
 	TrackerURL string
 	TopicURI   string
 	Quiet      bool
+	Verbose    bool
 }
 
 func Seed(params *SeedParams) {
@@ -24,6 +25,7 @@ func Seed(params *SeedParams) {
 		TrackerURL = params.TrackerURL
 	}
 
+	scrn.verbose = params.Verbose
 	quiet = params.Quiet
 
 	app.Open()

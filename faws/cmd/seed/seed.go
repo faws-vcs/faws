@@ -21,6 +21,7 @@ func init() {
 	flag := seed_cmd.Flags()
 	flag.StringP("sign", "s", "", "use a signing identity to identify yourself with the P2P network")
 	flag.BoolP("quiet", "q", false, "shut up the interactive Hud")
+	flag.BoolP("verbose", "v", false, "display extra information")
 	root.RootCmd.AddCommand(&seed_cmd)
 }
 
@@ -49,6 +50,11 @@ func run_seed_cmd(cmd *cobra.Command, args []string) {
 		return
 	}
 	params.Quiet, err = flag.GetBool("quiet")
+	if err != nil {
+		app.Fatal(err)
+		return
+	}
+	params.Verbose, err = flag.GetBool("verbose")
 	if err != nil {
 		app.Fatal(err)
 		return

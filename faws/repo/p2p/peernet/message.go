@@ -104,7 +104,7 @@ const fragment_max_data_size = 16384 - (16 + 2)
 // once all fragments are received, and the timestamp is within ttl
 // the message will be delivered
 type fragment struct {
-	Message  message_guid
+	Message  MessageGUID
 	Fragment uint16
 	Data     []byte
 }

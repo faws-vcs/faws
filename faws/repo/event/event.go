@@ -33,6 +33,7 @@ const (
 	NotifyPeerConnected
 	NotifyPeerDisconnected
 	NotifyPeerNetMessage
+	NotifyPeerNetMessageDrop
 	NotifyPeerObjectUpload
 	NotifyPeerObjectDuplicateDownload
 	NotifyVisitObject
@@ -79,7 +80,8 @@ type NotifyParams struct {
 	//
 	ID identity.ID
 	//
-	MessageID peernet.MessageID
+	Outbound    bool
+	MessageGUID peernet.MessageGUID
 }
 
 // A NotifyFunc can be supplied to repo.Repository.Open to get notifications about the repository's actions

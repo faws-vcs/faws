@@ -13,8 +13,9 @@ import (
 )
 
 type (
-	MessageHandlerFunc    func(topic tracker.Topic, peer identity.ID, message_id MessageID, message []byte)
-	PeerUpdateHandlerFunc func(topic tracker.Topic, peer identity.ID, peer_state PeerState)
+	MessageHandlerFunc     func(topic tracker.Topic, outgoing bool, peer identity.ID, message_id MessageGUID, message []byte)
+	PeerUpdateHandlerFunc  func(topic tracker.Topic, peer identity.ID, peer_state PeerState)
+	MessageDropHandlerFunc func(topic tracker.Topic, peer identity.ID, message_guid MessageGUID)
 )
 
 // Client serves as the interface for a peer to communicate with other peers
@@ -37,8 +38,9 @@ type Client struct {
 	topic_channels       map[tracker.Topic]*topic_channel
 
 	// handlers
-	peer_update_handler     PeerUpdateHandlerFunc
-	channel_message_handler MessageHandlerFunc
+	peer_update_handler          PeerUpdateHandlerFunc
+	channel_message_handler      MessageHandlerFunc
+	channel_message_drop_handler MessageDropHandlerFunc
 }
 
 func (client *Client) Init(options ...ClientOption) (err error) {
@@ -94,7 +96,8 @@ func (client *Client) Init(options ...ClientOption) (err error) {
 
 	// set default handlers
 	client.peer_update_handler = func(topic tracker.Topic, peer identity.ID, peer_state PeerState) {}
-	client.channel_message_handler = func(topic tracker.Topic, peer identity.ID, message_id MessageID, message []byte) {}
+	client.channel_message_drop_handler = func(topic tracker.Topic, peer identity.ID, message_guid MessageGUID) {}
+	client.channel_message_handler = func(topic tracker.Topic, outgoing bool, peer identity.ID, message_guid MessageGUID, message []byte) {}
 
 	client.tracker_client.OnPeer(func(topic tracker.Topic, peer identity.ID) {
 		topic_channel := client.get_topic_channel(topic)
@@ -142,6 +145,10 @@ func (client *Client) OnPeerUpdate(peer_update_handler PeerUpdateHandlerFunc) {
 
 func (client *Client) OnMessage(message_handler MessageHandlerFunc) {
 	client.channel_message_handler = message_handler
+}
+
+func (client *Client) OnMessageDrop(drop_handler MessageDropHandlerFunc) {
+	client.channel_message_drop_handler = drop_handler
 }
 
 func (client *Client) Subscribe(topic tracker.Topic) {

@@ -72,13 +72,13 @@ func run_add_cmd(cmd *cobra.Command, args []string) {
 		Verbose:     verbose,
 	}
 
-	if mode != "" {
+	//if mode != "" {
 		params.SetMode = true
 		params.Mode, err = revision.ParseFileMode(mode)
 		if err != nil {
 			app.Fatal(err)
 		}
-	}
+	//}
 
 	repository.AddFile(&params)
 }

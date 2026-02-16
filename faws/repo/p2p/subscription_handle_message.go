@@ -7,11 +7,13 @@ import (
 	"github.com/faws-vcs/faws/faws/repo/p2p/peernet"
 )
 
-func (subscription *subscription) handle_message(peer identity.ID, message_id peernet.MessageID, message []byte) {
+func (subscription *subscription) handle_incoming_message(peer identity.ID, message_guid peernet.MessageGUID, message []byte) {
 	// console.Println("received message from", peer, message_id)
 
+	message_id := message_guid.MessageID()
+
 	var peernet_message event.NotifyParams
-	peernet_message.MessageID = message_id
+	peernet_message.MessageGUID = message_guid
 	peernet_message.ID = peer
 
 	switch message_id {

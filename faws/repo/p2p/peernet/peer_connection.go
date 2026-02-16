@@ -3,6 +3,7 @@ package peernet
 import (
 	"encoding/json"
 	"errors"
+	"maps"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -17,25 +18,32 @@ import (
 type PeerState uint8
 
 const (
+	// The peer exists in this state by default.
+	// The peer also enters this state when the transport
 	PeerDisconnected = iota
+	// The peer has connected
 	PeerConnected
+	PeerClosed
 	NumChannelStates
 )
 
-const message_ttl = time.Minute
+const (
+	message_ttl = time.Minute
+)
 
 func (channel_state PeerState) String() (s string) {
 	if channel_state > NumChannelStates {
 		return "?"
 	}
-	s = []string{"disconnected", "connected"}[channel_state]
+	s = []string{"disconnected", "connected", "closed"}[channel_state]
 	return
 }
 
 var (
-	channel_id            uint16 = 1440
-	channel_is_negotiated bool   = true
-	channel_is_ordered    bool   = true
+	channel_id              uint16 = 1440
+	channel_is_negotiated   bool   = true
+	channel_is_ordered      bool   = false
+	channel_max_retransmits uint16 = 0
 
 	default_ice_servers = []webrtc.ICEServer{
 		{
@@ -52,12 +60,13 @@ type peer_connection struct {
 	// our WebRTC connection to the peer
 	connection *webrtc.PeerConnection
 	//
-	write_lock            sync.Mutex
-	read_lock             sync.Mutex
-	data_channel          *webrtc.DataChannel
-	message_sequence      uint64
-	incoming_data_channel chan fragment
-	outgoing_data_channel chan fragment
+	write_lock               sync.Mutex
+	read_lock                sync.Mutex
+	data_channel_established atomic.Bool
+	data_channel             *webrtc.DataChannel
+	message_sequence         uint64
+	incoming_data_channel    chan fragment
+	outgoing_data_channel    chan fragment
 	//
 	state atomic.Int32
 	//
@@ -183,6 +192,9 @@ func (peer_connection *peer_connection) handle_connection_state_change(pcs webrt
 	case webrtc.PeerConnectionStateDisconnected:
 		peer_connection.set_state(PeerDisconnected)
 	case webrtc.PeerConnectionStateConnected:
+		if peer_connection.data_channel_established.Load() {
+			peer_connection.set_state(PeerConnected)
+		}
 	}
 }
 
@@ -205,12 +217,34 @@ type incoming_message struct {
 	bytes_received    uint64
 }
 
-func incoming_messages_gc(messages map[message_guid]*incoming_message) {
-	moment := time.Now()
-	for guid := range messages {
-		if moment.Sub(time.UnixMilli(guid.Timestamp())) > incoming_messages_gc_ttl {
-			delete(messages, guid)
+func (peer_connection *peer_connection) incoming_messages_gc(messages map[MessageGUID]*incoming_message) {
+	// sort guids by timestamp
+	guids := slices.Collect(maps.Keys(messages))
+	slices.SortFunc(guids, func(a, b MessageGUID) int {
+		a_time, b_time := a.Time(), b.Time()
+		if a_time.Before(b_time) {
+			return -1
+		} else if a_time.After(b_time) {
+			return 1
+		} else if a_time.Equal(b_time) {
+			return 0
 		}
+		panic("time")
+	})
+	const overweight_threshold = 1 << 27 // 128 MiB
+	// gather total weight
+	var weight uint64
+	for _, message := range guids {
+		weight += uint64(message.PayloadSize())
+	}
+	// drop oldest messages until map is no longer overweight
+	for _, message := range guids {
+		if weight < overweight_threshold {
+			break
+		}
+		weight -= uint64(message.PayloadSize())
+		delete(messages, message)
+		peer_connection.topic_channel.client.channel_message_drop_handler(peer_connection.topic_channel.topic, peer_connection.peer, message)
 	}
 }
 
@@ -230,29 +264,29 @@ func (incoming_message *incoming_message) get_fragment_bit(fragment_id uint16) (
 }
 
 func (peer_connection *peer_connection) handle_incoming_data() {
-	messages := make(map[message_guid]*incoming_message)
+	messages := make(map[MessageGUID]*incoming_message)
 
-	gc_ticker := time.NewTicker(incoming_messages_gc_ttl)
+	gc_ticker := time.NewTicker(16 * time.Second)
 
 message_loop:
 	for {
 		select {
 		case <-gc_ticker.C:
-			incoming_messages_gc(messages)
+			peer_connection.incoming_messages_gc(messages)
 		case fragment, ok := <-peer_connection.incoming_data_channel:
 			if !ok {
 				break message_loop
 			}
-			moment := time.Now()
-			// if the message is too old by now, drop it
-			if moment.Sub(time.UnixMilli(fragment.Message.Timestamp())) > message_ttl {
-				delete(messages, fragment.Message)
-				continue message_loop
-			}
+			//moment := time.Now()
+			// // if the message is too old by now, drop it
+			// if moment.Sub(fragment.Message.Time()) > message_ttl {
+			// 	delete(messages, fragment.Message)
+			// 	continue message_loop
+			// }
 
 			// if the single fragment contains the entire message payload, receive the message and skip tracking
 			if fragment.Message.PayloadSize() == uint32(len(fragment.Data)) {
-				peer_connection.topic_channel.client.channel_message_handler(peer_connection.topic_channel.topic, peer_connection.peer, fragment.Message.MessageID(), fragment.Data)
+				peer_connection.topic_channel.client.channel_message_handler(peer_connection.topic_channel.topic, false, peer_connection.peer, fragment.Message, fragment.Data)
 				continue message_loop
 			}
 
@@ -296,7 +330,7 @@ message_loop:
 
 			if all_fragments_received {
 				delete(messages, fragment.Message)
-				peer_connection.topic_channel.client.channel_message_handler(peer_connection.topic_channel.topic, peer_connection.peer, fragment.Message.MessageID(), incoming_message_.buffer)
+				peer_connection.topic_channel.client.channel_message_handler(peer_connection.topic_channel.topic, false, peer_connection.peer, fragment.Message, incoming_message_.buffer)
 			}
 		}
 
@@ -332,11 +366,16 @@ func (peer_connection *peer_connection) create_data_channel() {
 	data_channel_init.ID = &channel_id
 	data_channel_init.Negotiated = &channel_is_negotiated
 	data_channel_init.Ordered = &channel_is_ordered
+	// data_channel_init.MaxRetransmits = &channel_max_retransmits
 	data_channel, err = peer_connection.connection.CreateDataChannel("faws peernet v1", &data_channel_init)
 	if err == nil {
 		data_channel.OnOpen(func() {
-			peer_connection.incoming_data_channel = make(chan fragment, 64)
-			peer_connection.outgoing_data_channel = make(chan fragment, 128)
+			if peer_connection.incoming_data_channel != nil {
+				app.Fatal("reconnection failure")
+			}
+			peer_connection.data_channel_established.Store(true)
+			peer_connection.incoming_data_channel = make(chan fragment, 8)
+			peer_connection.outgoing_data_channel = make(chan fragment, 16)
 			peer_connection.set_state(PeerConnected)
 			go peer_connection.handle_outgoing_data()
 			go peer_connection.handle_incoming_data()
@@ -350,10 +389,11 @@ func (peer_connection *peer_connection) create_data_channel() {
 			peer_connection.handle_message_fragment(data_channel_message.Data)
 		})
 		data_channel.OnClose(func() {
-			peer_connection.set_state(PeerDisconnected)
+			peer_connection.set_state(PeerClosed)
 			close(peer_connection.incoming_data_channel)
 			peer_connection.write_lock.Lock()
 			close(peer_connection.outgoing_data_channel)
+			peer_connection.incoming_data_channel = nil
 			peer_connection.outgoing_data_channel = nil
 			peer_connection.write_lock.Unlock()
 		})
@@ -383,6 +423,7 @@ func (peer_connection *peer_connection) send(message_id MessageID, message []byt
 	}
 
 	if peer_connection.state.Load() == PeerConnected {
+		// ensure that fragments are sequentially transmitted
 		peer_connection.write_lock.Lock()
 		defer peer_connection.write_lock.Unlock()
 
@@ -398,9 +439,13 @@ func (peer_connection *peer_connection) send(message_id MessageID, message []byt
 		}
 		peer_connection.message_sequence++
 
-		message_guid := new_message_guid(message_id, message_sequence, time.Now().UnixMilli(), uint32(len(message)))
+		message_guid := NewMessageGUID(message_id, message_sequence, time.Now(), uint32(len(message)))
+
+		peer_connection.topic_channel.client.channel_message_handler(peer_connection.topic_channel.topic, true, peer_connection.peer, message_guid, message)
 
 		// break message into fragments
+		// fragments arrive as tagged pieces of a larger message
+		// identified by the message guid
 		var fragment_id uint16
 		for fragment_data := range slices.Chunk(message, fragment_max_data_size) {
 			var fragment fragment
@@ -419,5 +464,5 @@ func (peer_connection *peer_connection) send(message_id MessageID, message []byt
 func (peer_connection *peer_connection) close() {
 	peer_connection.data_channel.Close()
 	peer_connection.connection.Close()
-	peer_connection.set_state(PeerDisconnected)
+	peer_connection.set_state(PeerClosed)
 }

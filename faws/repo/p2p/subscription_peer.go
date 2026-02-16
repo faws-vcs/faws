@@ -13,8 +13,8 @@ import (
 
 // how long to wait before sending another want request
 var (
-	want_ttl    = time.Minute
-	request_ttl = time.Hour * 10
+	want_ttl    = time.Minute * 32
+	request_ttl = time.Minute * 32
 )
 
 type peer struct {

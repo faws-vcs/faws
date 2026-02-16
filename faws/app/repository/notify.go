@@ -11,7 +11,6 @@ import (
 	"github.com/faws-vcs/faws/faws/app"
 	"github.com/faws-vcs/faws/faws/repo/cas"
 	"github.com/faws-vcs/faws/faws/repo/event"
-	"github.com/faws-vcs/faws/faws/repo/p2p/peernet"
 )
 
 const (
@@ -65,7 +64,6 @@ type activity_screen struct {
 	connected_peers int
 
 	received_messages              int64
-	last_message_id                peernet.MessageID
 	object_uploads                 int64
 	duplicate_object_downloads     int64
 	duplicate_object_download_size uint64
@@ -75,6 +73,12 @@ type activity_screen struct {
 	objects_pruned         uint64
 
 	verbose bool
+}
+
+func modify_state(f func()) {
+	scrn.guard.Lock()
+	f()
+	scrn.guard.Unlock()
 }
 
 func begin_stage(stage event.Stage, child bool) {
@@ -101,22 +105,21 @@ func complete_stage(stage event.Stage, success bool) {
 }
 
 func update_pull_info(object_size int, object_prefix cas.Prefix, object_hash cas.ContentID) {
-	scrn.guard.Lock()
-	scrn.bytes_received += uint64(object_size)
-	scrn.objects_received++
-
-	scrn.last_object_prefix = object_prefix
-	scrn.last_object_hash = object_hash
-	scrn.last_object_size = uint64(object_size)
-	scrn.guard.Unlock()
+	modify_state(func() {
+		scrn.bytes_received += uint64(object_size)
+		scrn.objects_received++
+		scrn.last_object_prefix = object_prefix
+		scrn.last_object_hash = object_hash
+		scrn.last_object_size = uint64(object_size)
+	})
 }
 
 func update_checkout(destination string, size int64) {
-	scrn.guard.Lock()
-	scrn.current_file_origin = destination
-	scrn.current_file_size = size
-	scrn.current_file_progress = 0
-	scrn.guard.Unlock()
+	modify_state(func() {
+		scrn.current_file_origin = destination
+		scrn.current_file_size = size
+		scrn.current_file_progress = 0
+	})
 }
 
 func prefix(p cas.Prefix) string {
@@ -135,6 +138,7 @@ func prefix(p cas.Prefix) string {
 }
 
 func notify(ev event.Notification, params *event.NotifyParams) {
+	var swap_hud bool
 
 	switch ev {
 	case event.NotifyCacheFile:
@@ -145,24 +149,22 @@ func notify(ev event.Notification, params *event.NotifyParams) {
 
 		// don't try to call app.Info while modifying the activity screen state : it will lead to DEADLOCK
 		// as the hud is already trying to get a lock when an update is being notified, these can never become unlocked
-		scrn.guard.Lock()
-		scrn.current_file_size = params.Count
-		scrn.current_file_progress = 0
-		scrn.current_file_origin = params.Name2
-		scrn.guard.Unlock()
-
+		modify_state(func() {
+			scrn.current_file_size = params.Count
+			scrn.current_file_progress = 0
+			scrn.current_file_origin = params.Name2
+		})
+		swap_hud = true
 	case event.NotifyCacheFilePart:
-
-		scrn.guard.Lock()
-		scrn.current_file_progress += params.Count
-		scrn.guard.Unlock()
-
+		modify_state(func() {
+			scrn.current_file_progress += params.Count
+		})
+		swap_hud = true
 	case event.NotifyCacheUsedLazySignature:
 		app.Info("using precached file (--lazy)", params.Name1, params.Name2)
 	case event.NotifyIndexRemoveFile:
 		app.Info(fmt.Sprintf("rm '%s'", params.Name1))
 	case event.NotifyPullTag:
-
 		local_hash := params.Object1
 		remote_hash := params.Object2
 		if local_hash == cas.Nil {
@@ -173,9 +175,10 @@ func notify(ev event.Notification, params *event.NotifyParams) {
 			app.Info("tag", params.Name1+":", params.Object2)
 		}
 
-		scrn.guard.Lock()
-		scrn.tags_received++
-		scrn.guard.Unlock()
+		modify_state(func() {
+			scrn.tags_received++
+		})
+		swap_hud = true
 	case event.NotifyPullObject:
 		var (
 			object_prefix = params.Prefix
@@ -184,72 +187,107 @@ func notify(ev event.Notification, params *event.NotifyParams) {
 		)
 
 		update_pull_info(int(object_size), object_prefix, object_hash)
+		swap_hud = true
 	case event.NotifyTagQueueCount:
-		scrn.guard.Lock()
-		scrn.tags_in_queue = int(params.Count)
-		scrn.guard.Unlock()
+		modify_state(func() {
+			scrn.tags_in_queue = int(params.Count)
+		})
+		swap_hud = true
 	case event.NotifyPullQueueCount:
-		scrn.guard.Lock()
-		scrn.in_progress = true
-		scrn.objects_in_queue = int(params.Count)
-		scrn.guard.Unlock()
+		modify_state(func() {
+			scrn.in_progress = true
+			scrn.objects_in_queue = int(params.Count)
+		})
+		swap_hud = true
 	case event.NotifyCorruptedObject:
 		app.Warning("corrupted object", params.Prefix, params.Object1)
 	case event.NotifyRemovedCorruptedObject:
 		app.Warning("removed corrupted object", params.Prefix, params.Object1)
 	case event.NotifyPruneObject:
-		scrn.guard.Lock()
-		scrn.objects_pruned++
-		scrn.guard.Unlock()
+		modify_state(func() {
+			scrn.objects_pruned++
+		})
+		swap_hud = true
 		app.Warning("pruned unreachable object", params.Object1)
 	case event.NotifyBeginStage:
 		begin_stage(params.Stage, params.Child)
 	case event.NotifyCompleteStage:
 		complete_stage(params.Stage, params.Success)
+		swap_hud = true
 	case event.NotifyCheckoutFile:
 		if scrn.verbose {
 			app.Info(params.Name1)
 		}
 		update_checkout(params.Name1, params.Count)
+		swap_hud = true
 	case event.NotifyCheckoutFilePart:
-		scrn.guard.Lock()
-		scrn.current_file_progress += params.Count
-		scrn.guard.Unlock()
+		modify_state(func() {
+			scrn.current_file_progress += params.Count
+		})
+		swap_hud = true
 	case event.NotifyPeerConnected:
-		scrn.guard.Lock()
-		scrn.connected_peers++
-		// app.Info("connected to peer", params.ID)
-		scrn.guard.Unlock()
+		modify_state(func() {
+			scrn.connected_peers++
+		})
+		swap_hud = true
+		if scrn.verbose {
+			app.Info("connected to peer", params.ID)
+		}
 	case event.NotifyPeerDisconnected:
-		// app.Info("disconnected from", params.ID)
-		scrn.guard.Lock()
-		scrn.connected_peers--
-		scrn.guard.Unlock()
+		modify_state(func() {
+			scrn.connected_peers--
+		})
+		swap_hud = true
+		if scrn.verbose {
+			app.Info("disconnected from", params.ID)
+		}
 	case event.NotifyPeerNetMessage:
-		scrn.guard.Lock()
-		scrn.received_messages++
-		scrn.last_message_id = params.MessageID
-		scrn.guard.Unlock()
+		modify_state(func() {
+			scrn.received_messages++
+		})
+
+		swap_hud = false
+
+		if scrn.verbose {
+			human_time := humanize.Time(params.MessageGUID.Time())
+
+			if params.Outbound {
+				app.Info("->", params.ID, params.MessageGUID)
+			} else {
+				app.Info("<-", params.ID, params.MessageGUID, human_time)
+			}
+		}
+	case event.NotifyPeerNetMessageDrop:
+		//if scrn.verbose {
+		app.Info("x-", params.ID, params.MessageGUID, humanize.Time(params.MessageGUID.Time()))
+		//}
 	case event.NotifyPeerObjectUpload:
-		scrn.guard.Lock()
-		scrn.object_uploads++
-		scrn.guard.Unlock()
+		modify_state(func() {
+			scrn.object_uploads++
+		})
+		swap_hud = true
 	case event.NotifyPeerObjectDuplicateDownload:
-		scrn.guard.Lock()
-		scrn.duplicate_object_downloads++
-		scrn.duplicate_object_download_size += uint64(params.Count)
-		scrn.guard.Unlock()
+		modify_state(func() {
+			scrn.duplicate_object_downloads++
+			scrn.duplicate_object_download_size += uint64(params.Count)
+		})
+		swap_hud = true
 	case event.NotifyVisitObject:
-		scrn.guard.Lock()
-		scrn.objects_visited++
-		scrn.guard.Unlock()
+		modify_state(func() {
+			scrn.objects_visited++
+		})
+		swap_hud = true
 	case event.NotifyVisitQueueCount:
-		scrn.guard.Lock()
-		scrn.objects_in_visit_queue = uint64(params.Count)
-		scrn.guard.Unlock()
+		modify_state(func() {
+			scrn.objects_in_visit_queue = uint64(params.Count)
+		})
+		swap_hud = true
 	}
 
-	console.SwapHud()
+	if swap_hud {
+		console.SwapHud()
+	}
+
 }
 
 func render_activity_screen(hud *console.Hud) {

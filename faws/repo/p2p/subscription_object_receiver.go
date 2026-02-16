@@ -17,7 +17,6 @@ type named_object struct {
 }
 
 func (subscription *subscription) process_object(object_hash cas.ContentID, object_prefix cas.Prefix, object_data []byte) {
-
 	switch object_prefix {
 	case cas.Commit:
 		var (
