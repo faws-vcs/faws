@@ -209,7 +209,7 @@ func (peer_connection *peer_connection) set_state(state int32) {
 	}
 }
 
-const incoming_messages_gc_ttl = 1 * time.Minute
+const incoming_messages_minimum_ttl = 1 * time.Minute
 
 type incoming_message struct {
 	fragment_bitfield [514]byte
@@ -218,6 +218,7 @@ type incoming_message struct {
 }
 
 func (peer_connection *peer_connection) incoming_messages_gc(messages map[MessageGUID]*incoming_message) {
+	moment := time.Now()
 	// sort guids by timestamp
 	guids := slices.Collect(maps.Keys(messages))
 	slices.SortFunc(guids, func(a, b MessageGUID) int {
@@ -241,6 +242,9 @@ func (peer_connection *peer_connection) incoming_messages_gc(messages map[Messag
 	for _, message := range guids {
 		if weight < overweight_threshold {
 			break
+		}
+		if moment.Sub(message.Time()) < incoming_messages_minimum_ttl {
+			continue
 		}
 		weight -= uint64(message.PayloadSize())
 		delete(messages, message)
