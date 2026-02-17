@@ -7,7 +7,6 @@ import (
 	"github.com/faws-vcs/faws/faws/app"
 	"github.com/faws-vcs/faws/faws/app/identities"
 	"github.com/faws-vcs/faws/faws/repo"
-	"github.com/faws-vcs/faws/faws/repo/event"
 	"github.com/faws-vcs/faws/faws/repo/p2p/tracker"
 )
 
@@ -22,9 +21,9 @@ var quiet bool
 func Open(directory string) (err error) {
 	notify_func := notify
 
-	if quiet {
-		notify_func = func(ev event.Notification, params *event.NotifyParams) {}
-	}
+	// if quiet {
+	// 	notify_func = func(ev event.Notification, params *event.NotifyParams) {}
+	// }
 
 	err = Repo.Open(directory,
 		repo.WithTrust(identities.NewRingTrust(app.Configuration.Ring())),
