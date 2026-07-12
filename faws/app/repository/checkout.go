@@ -1,13 +1,16 @@
 package repository
 
-import "github.com/faws-vcs/faws/faws/app"
+import (
+	"github.com/faws-vcs/faws/faws/app"
+	"github.com/faws-vcs/faws/faws/repo"
+)
 
 // CheckoutParams are the input parameters to the command "faws checkout", [Checkout]
 type CheckoutParams struct {
-	Directory   string
-	Ref         string
-	Destination string
-	Overwrite   bool
+	Directory    string
+	Ref          string
+	Destination  string
+	CheckoutMode repo.CheckoutMode
 }
 
 // Checkout is the implementation of the command "faws checkout"
@@ -28,7 +31,7 @@ func Checkout(params *CheckoutParams) {
 		app.Fatal(err)
 	}
 
-	if err := Repo.Checkout(ref, params.Destination, params.Overwrite); err != nil {
+	if err := Repo.Checkout(ref, params.Destination, params.CheckoutMode); err != nil {
 		app.Fatal(err)
 	}
 }

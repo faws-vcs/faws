@@ -6,7 +6,7 @@ require (
 	github.com/Gophercraft/mpq v0.1.1-0.20250127065928-651347da2df6
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dustin/go-humanize v1.0.1
-	github.com/faws-vcs/console v0.0.0-20260131025334-e632c3e5b6a0
+	github.com/faws-vcs/console v0.0.0-20260712030723-2bbd03dc7bb4
 	github.com/google/btree v1.1.3
 	github.com/restic/chunker v0.4.1-0.20231001122857-ac4c622f4b08
 	github.com/spf13/cobra v1.9.1
@@ -17,11 +17,11 @@ require (
 require (
 	github.com/JoshVarga/blast v0.0.0-20210808061142-eadad17358e8 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
-	github.com/clipperhouse/uax29/v2 v2.4.0 // indirect
+	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/mattn/go-runewidth v0.0.19 // indirect
+	github.com/mattn/go-runewidth v0.0.24 // indirect
 	github.com/pion/datachannel v1.5.10 // indirect
 	github.com/pion/dtls/v3 v3.0.9 // indirect
 	github.com/pion/ice/v4 v4.1.0 // indirect
@@ -41,6 +41,6 @@ require (
 	github.com/ulikunitz/xz v0.5.12 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
-	golang.org/x/sys v0.40.0 // indirect
-	golang.org/x/term v0.39.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/term v0.45.0 // indirect
 )

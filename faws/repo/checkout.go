@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/faws-vcs/faws/faws/fs"
 	"github.com/faws-vcs/faws/faws/repo/cas"
@@ -13,12 +14,19 @@ import (
 	"github.com/faws-vcs/faws/faws/validate"
 )
 
+type CheckoutMode uint8
+
+const (
+	CheckoutOverwrite = 1 << iota
+	CheckoutCasefoldTree
+)
+
 var (
 	ErrCheckoutBadPrefix = fmt.Errorf("faws/repo: bad prefix")
 	ErrCheckoutOverwrite = fmt.Errorf("faws/repo: a file exists at the destination. pass -w, --overwrite to write anyway")
 )
 
-func (repo *Repository) checkout_file(file_hash cas.ContentID, mode revision.FileMode, dest string, overwrite bool) (err error) {
+func (repo *Repository) checkout_file(file_hash cas.ContentID, mode revision.FileMode, dest string, checkout_mode CheckoutMode) (err error) {
 	var (
 		file_data   []byte
 		file_prefix cas.Prefix
@@ -37,7 +45,7 @@ func (repo *Repository) checkout_file(file_hash cas.ContentID, mode revision.Fil
 		perm |= 0111
 	}
 
-	if !overwrite {
+	if checkout_mode&CheckoutOverwrite == 0 {
 		if _, err = os.Stat(dest); err == nil {
 			err = ErrCheckoutOverwrite
 			return
@@ -110,7 +118,7 @@ func (repo *Repository) checkout_file(file_hash cas.ContentID, mode revision.Fil
 	return
 }
 
-func (repo *Repository) checkout_tree(tree_hash cas.ContentID, dest string, overwrite bool) (err error) {
+func (repo *Repository) checkout_tree(tree_hash cas.ContentID, dest string, checkout_mode CheckoutMode) (err error) {
 	var tree *revision.Tree
 	tree, err = repo.load_tree(tree_hash)
 	if err != nil {
@@ -127,13 +135,19 @@ func (repo *Repository) checkout_tree(tree_hash cas.ContentID, dest string, over
 			return
 		}
 
+		tree_entry_name := tree_entry.Name
+		if checkout_mode&CheckoutCasefoldTree != 0 {
+			tree_entry_name = strings.ToLower(tree_entry_name)
+		}
+		tree_entry_dest := filepath.Join(dest, tree_entry_name)
+
 		switch tree_entry.Prefix {
 		case cas.Tree:
-			if err = repo.checkout_tree(tree_entry.Content, filepath.Join(dest, tree_entry.Name), overwrite); err != nil {
+			if err = repo.checkout_tree(tree_entry.Content, tree_entry_dest, checkout_mode); err != nil {
 				return
 			}
 		case cas.File:
-			if err = repo.checkout_file(tree_entry.Content, tree_entry.Mode, filepath.Join(dest, tree_entry.Name), overwrite); err != nil {
+			if err = repo.checkout_file(tree_entry.Content, tree_entry.Mode, tree_entry_dest, checkout_mode); err != nil {
 				return
 			}
 		default:
@@ -145,20 +159,20 @@ func (repo *Repository) checkout_tree(tree_hash cas.ContentID, dest string, over
 	return
 }
 
-func (repo *Repository) checkout_commit(commit_hash cas.ContentID, dest string, overwrite bool) (err error) {
+func (repo *Repository) checkout_commit(commit_hash cas.ContentID, dest string, checkout_mode CheckoutMode) (err error) {
 	var commit_info *revision.CommitInfo
 	_, commit_info, err = repo.check_commit(commit_hash)
 	if err != nil {
 		return
 	}
 
-	return repo.checkout_tree(commit_info.Tree, dest, overwrite)
+	return repo.checkout_tree(commit_info.Tree, dest, checkout_mode)
 }
 
 // Checkout exports an object (most commonly, a commit) to a destination on the host filesystem.
 //
 // If overwrite == true, existing files in the path are destroyed and no error is returned.
-func (repo *Repository) Checkout(object_hash cas.ContentID, dest string, overwrite bool) (err error) {
+func (repo *Repository) Checkout(object_hash cas.ContentID, dest string, mode CheckoutMode) (err error) {
 	var checkout_stage event.NotifyParams
 	checkout_stage.Stage = event.StageCheckout
 	repo.notify(event.NotifyBeginStage, &checkout_stage)
@@ -174,11 +188,11 @@ func (repo *Repository) Checkout(object_hash cas.ContentID, dest string, overwri
 
 	switch prefix {
 	case cas.Commit:
-		err = repo.checkout_commit(object_hash, dest, overwrite)
+		err = repo.checkout_commit(object_hash, dest, mode)
 	case cas.Tree:
-		err = repo.checkout_tree(object_hash, dest, overwrite)
+		err = repo.checkout_tree(object_hash, dest, mode)
 	case cas.File:
-		err = repo.checkout_file(object_hash, 0, dest, overwrite)
+		err = repo.checkout_file(object_hash, 0, dest, mode)
 	default:
 		err = ErrCheckoutBadPrefix
 	}

@@ -18,7 +18,10 @@ func (m FileMode) String() string {
 }
 
 func ParseFileMode(s string) (m FileMode, err error) {
-	if s == "-" {
+	if s == "" {
+		m = 0
+		return
+	} else if s == "-" {
 		m = 0
 		return
 	} else if s == "x" {

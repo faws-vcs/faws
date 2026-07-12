@@ -7,6 +7,7 @@ import (
 	"github.com/faws-vcs/faws/faws/app/repository"
 	"github.com/faws-vcs/faws/faws/cmd/helpinfo"
 	"github.com/faws-vcs/faws/faws/cmd/root"
+	"github.com/faws-vcs/faws/faws/repo"
 	"github.com/spf13/cobra"
 )
 
@@ -21,6 +22,7 @@ var checkout_cmd = cobra.Command{
 func init() {
 	flags := checkout_cmd.Flags()
 	flags.BoolP("overwrite", "w", false, "overwrite any files that may exist at the destination")
+	flags.BoolP("casefold-tree", "f", false, "when checking out a tree, entry names should be converted to lowercase before creating files. use this with caution!")
 	root.RootCmd.AddCommand(&checkout_cmd)
 }
 
@@ -32,6 +34,10 @@ func run_checkout_cmd(cmd *cobra.Command, args []string) {
 
 	flags := cmd.Flags()
 	overwrite, err := flags.GetBool("overwrite")
+	if err != nil {
+		app.Fatal(err)
+	}
+	casefold_tree, err := flags.GetBool("casefold-tree")
 	if err != nil {
 		app.Fatal(err)
 	}
@@ -47,7 +53,12 @@ func run_checkout_cmd(cmd *cobra.Command, args []string) {
 		Directory:   working_directory,
 		Ref:         args[0],
 		Destination: args[1],
-		Overwrite:   overwrite,
+	}
+	if overwrite {
+		params.CheckoutMode |= repo.CheckoutOverwrite
+	}
+	if casefold_tree {
+		params.CheckoutMode |= repo.CheckoutCasefoldTree
 	}
 
 	repository.Checkout(&params)
